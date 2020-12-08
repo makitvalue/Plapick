@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+    <head>
+        <meta charset="utf-8">
+        <title>PLAPICK | ADMIN</title>
+        <link rel="stylesheet" type="text/css" href="/admin/css/common.css" />
+
+        <% if (menu == 'login') { %>
+        <link rel="stylesheet" type="text/css" href="/admin/css/login.css" />
+
+        <% } else if (menu == 'main') { %>
+            <link rel="stylesheet" type="text/css" href="/admin/css/main.css" />
+        <% } %>
+    </head>
+    <body>
+        <% if (menu == 'login') { %>
+            <% include ./login %>
+
+        <% } else if (menu == 'main') { %>
+            <% include ./main %>
+        <% } %>
+
+        <script src="/admin/js/common.js"></script>
+
+        <% if (menu == 'login') { %>
+        <script src="/admin/js/login.js"></script>
+
+        <% } else if (menu == 'main') { %>
+            <script src="/admin/js/main.js"></script>
+        <% } %>
+    </body>
+</html>
