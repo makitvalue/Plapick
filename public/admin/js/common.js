@@ -1,5 +1,5 @@
 
-function common() {
+function initCommon() {
 
 }
-common();
+initCommon();

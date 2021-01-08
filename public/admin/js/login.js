@@ -5,6 +5,7 @@ const buttonLogin = document.querySelector('.js-button-login');
 
 
 function login() {
+
     id = inputId.value.trim();
     pwd = inputPwd.value.trim();
 
@@ -21,13 +22,13 @@ function login() {
             pwd: pwd
         })
     })
-    .then(function(response) {
-        return response.json();
-    })
     .then(function(data) {
-        alert(data.status);
+        return data.json();
+    })
+    .then(function(response) {
+        alert(response.status);
 
-        if (data.status == 'OK') {
+        if (response.status == 'OK') {
             location.href = '/admin';
             return;
         }
@@ -37,16 +38,16 @@ function login() {
 
 function enterKey() {
     if (window.event.keyCode == 13) {
-        login();
+        adminLogin();
     }
 }
 
 
-function init() {
+function initLogin() {
 
     buttonLogin.addEventListener('click', login);
     inputId.addEventListener('keyup', enterKey);
     inputPwd.addEventListener('keyup', enterKey);
 
 }
-init();
+initLogin();

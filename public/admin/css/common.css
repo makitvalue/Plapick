@@ -16,8 +16,8 @@ body {
 	height: 100%;
 	font-family: 'Noto Sans KR', sans-serif;
 	font-weight: 400;
-	background: #FFFFFF;
-	color: #333333;
+	background: #333333;
+	color: #FFFFFF;
 	word-break: keep-all;
 	position: relative;
 
@@ -28,7 +28,7 @@ body.overflow-hidden {
 }
 
 a, a:hover, a:visited, a:hover, a:focus, a:active {
-	color: #333333;
+	color: #FFFFFF;
 	text-decoration: none;
 }
 

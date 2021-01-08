@@ -11,7 +11,7 @@ h2 span {
     font-size: 2rem;
 }
 table {
-    margin-top: 64px;
+    margin-top: 32px;
     width: 100%;
     border-collapse: collapse;
     text-align: center;
@@ -19,6 +19,7 @@ table {
 table thead tr th {
     background: #EFEFEF;
     padding: 12px;
+    color: #333333;
 }
 table tbody tr td {
     padding: 8px 0;
@@ -28,14 +29,18 @@ table tbody tr td input {
     padding: 4px;
     font-size: 1rem;
     text-align: center;
-    border: 1px solid #EFEFEF;
+    background: #333333;
+    color: #FFFFFF;
+    border: 2px solid #EFEFEF;
+    border-radius: 4px;
 }
 table tbody tr td input:focus {
-    border: 1px solid #DFDFDF;
+    border: 2px solid #DFDFDF;
 }
 table tbody tr td button {
+    border-radius: 8px;
     cursor: pointer;
-    border: 1px solid #DFDFDF;
+    border: 2px solid #DFDFDF;
     background: #EFEFEF;
     padding: 4px 8px;
     font-size: 1rem;

@@ -2,6 +2,8 @@ var express = require('express');
 var router = express.Router();
 const exec = require('child_process').exec;
 require('dotenv').config();
+var request = require('request');
+const getConnection = require('../base/database');
 
 
 router.get('/get/place/cnt', (req, res) => {
@@ -21,13 +23,34 @@ router.get('/get/place/cnt', (req, res) => {
 router.get('/get/locations', (req, res) => {
 
     let query = "SELECT * FROM t_locations";
-    o.mysql.query(query, (err, result) => {
-        if (err) {
-            res.json({ status: 'ERR_MYSQL' });
+
+    getConnection((error, conn) => { // getConnection 함수로 conn 땡겨와야됨
+        if (error) {
+            console.log(error);
+            res.json({ status: 'ERR_MYSQL_POOL' }); // 실패시 POOL 명시
             return;
         }
 
-        res.json({ status: 'OK', locations: result });
+        conn.query(query, (error, result) => {
+            if (error) {
+                console.log(error);
+                res.json({ status: 'ERR_MYSQL' });
+                return;
+            }
+
+            let locations = result;
+
+            conn.query("SELECT p_id FROM t__places", (error, result) => {
+                if (error) {
+                    console.log(error);
+                    res.json({ status: 'ERR_MYSQL' });
+                    return;
+                }
+
+                conn.release(); // 쿼리 날릴거 다 날린 후 response 주기 전 반환 필수
+                res.json({ status: 'OK', locations: locations, places: result });
+            });
+        });
     });
 });
 
@@ -59,6 +82,18 @@ router.post('/start/crwaling', (req, res) => {
     if (!nId) {
         res.json({status: "ERR_INVALID_PARAMS"});
         return;
+    }
+
+    if (nId.indexOf('naver.com') != -1) {
+        let find = /\/.+?\?/g.exec(nId);
+        let reversed = [];
+        if (find) find = find[0];
+        for (let i = find.length - 2; i > 0; i--) {
+            let n = find[i];
+            if (n == '/') break;
+            reversed.push(n);
+        }
+        nId = reversed.reverse().join('');
     }
 
     let command = 'python3 ~/plapick/python/plapick.py';
@@ -100,6 +135,76 @@ router.post('/admin/login', (req, res) => {
     } else {
         res.json({ status: 'ERR_FAILED_LOGIN' });
     }
+});
+
+
+router.get('/get/places', (req, res) => {
+
+    let keyword = req.query.keyword;
+
+    let placeList = [];
+    request.get({
+        uri: 'https://dapi.kakao.com/v2/local/search/keyword.json?query=' + encodeURI(keyword) + '&page=1',
+        headers: {
+            Authorization: 'KakaoAK c3cc426e36dba5cd8dc4275cd6532bf0'
+        }
+    }, function(error, response) {
+        if (error) {
+            console.log(error);
+            res.json({ status: 'ERR_KAKAO_PLACE' });
+            return;
+        }
+
+        let result = JSON.parse(response.body);
+        let isEnd = result.meta.is_end;
+        placeList = placeList.concat(result.documents);
+
+        if (isEnd) {
+            res.json({ status: 'OK', result: { placeList: placeList } });
+            return;
+        }
+
+        request.get({
+            uri: 'https://dapi.kakao.com/v2/local/search/keyword.json?query=' + encodeURI(keyword) + '&page=2',
+            headers: {
+                Authorization: 'KakaoAK c3cc426e36dba5cd8dc4275cd6532bf0'
+            }
+        }, function(error, response) {
+            if (error) {
+                console.log(error);
+                res.json({ status: 'ERR_KAKAO_PLACE' });
+                return;
+            }
+
+            let result = JSON.parse(response.body);
+            let isEnd = result.meta.is_end;
+            placeList = placeList.concat(result.documents);
+
+            if (isEnd) {
+                res.json({ status: 'OK', result: { placeList: placeList } });
+                return;
+            }
+
+            request.get({
+                uri: 'https://dapi.kakao.com/v2/local/search/keyword.json?query=' + encodeURI(keyword) + '&page=3',
+                headers: {
+                    Authorization: 'KakaoAK c3cc426e36dba5cd8dc4275cd6532bf0'
+                }
+            }, function(error, response) {
+                if (error) {
+                    console.log(error);
+                    res.json({ status: 'ERR_KAKAO_PLACE' });
+                    return;
+                }
+
+                let result = JSON.parse(response.body);
+                placeList = placeList.concat(result.documents);
+                res.json({ status: 'OK', result: { placeList: placeList } });
+                return;
+            });
+        });
+    });
+
 });
 
 
