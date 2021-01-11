@@ -6,7 +6,10 @@ var logger = require('morgan');
 var session = require('express-session');
 var mysql = require('mysql');
 var MySQLStore = require('express-mysql-session') (session);
-require('dotenv').config();
+var moment = require('moment');
+var dotenv = require('dotenv');
+dotenv.config();
+
 
 var indexRouter = require('./routes/index');
 var webApiRouter = require('./routes/webapi');
@@ -62,14 +65,34 @@ global.f = {}; // functions
 global.c = {}; // consts
 
 
-global.o.mysql = mysql.createConnection({
-    host: process.env.MYSQL_HOST,
-    port: process.env.MYSQL_PORT,
-    user: process.env.MYSQL_USER,
-    password: process.env.MYSQL_PASSWD,
-    database: process.env.MYSQL_DATABASE,
-    dateStrings: 'date'
-});
+// random id
+global.f.generateRandomId = function() {
+    var rand = Math.floor(Math.random() * 9999) + '';
+    var pad = rand.length >= 4 ? rand : new Array(4 - rand.length + 1).join('0') + rand;
+    var random_id = moment().format("YYMMDDHHmmss") + pad;
+    return random_id;
+};
+
+global.f.isNone = function(value) {
+    if (typeof value === 'undefined' || value === null || value === '') return true;
+    return false;
+};
+
+// none to blank
+global.f.ntb = function(value) {
+    if (f.isNone(value)) return '';
+    else return value;
+};
+
+
+// global.o.mysql = mysql.createConnection({
+//     host: process.env.MYSQL_HOST,
+//     port: process.env.MYSQL_PORT,
+//     user: process.env.MYSQL_USER,
+//     password: process.env.MYSQL_PASSWD,
+//     database: process.env.MYSQL_DATABASE,
+//     dateStrings: 'date'
+// });
 
 
 module.exports = app;

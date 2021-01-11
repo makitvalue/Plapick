@@ -3,7 +3,11 @@ var router = express.Router();
 var formidable = require('formidable');
 // const exec = require('child_process').exec;
 var request = require('request');
+var sharp = require('sharp');
+var fs = require('fs');
+var imageSize = require('image-size');
 const pool = require('../lib/database');
+const { pid } = require('process');
 
 
 // router.get('/get/place/cnt', (req, res) => {
@@ -209,7 +213,179 @@ router.get('/get/places', (req, res) => {
 });
 
 
+// 포스팅
 router.post('/posting', (req, res) => {
+    let form = new formidable.IncomingForm();
+    form.encoding = 'utf-8';
+    form.uploadDir = 'upload/tmp';
+    form.multiples = true;
+    form.keepExtensions = true;
+
+    form.parse(req, async (error, body, files) => {
+        if (error) {
+            console.log(error);
+            res.json({ status: 'ERR_UPLOAD' });
+            return;
+        }
+
+        let uId = body.uId;
+        let uType = body.uType;
+        let uSocialId = body.uSocialId;
+        let pId = body.pId;
+        let pkId = body.pkId;
+        let pName = body.pName;
+        let pAddress = body.pAddress;
+        let pRoadAddress = body.pRoadAddress;
+        let pCategoryName = body.pCategoryName;
+        let pCategoryGroupName = body.pCategoryGroupName;
+        let pCategoryGroupCode = body.pCategoryGroupCode;
+        let pPhone = body.pPhone;
+        let pLat = body.pLat;
+        let pLng = body.pLng;
+
+        // 유저 확인
+        let [result, fields] = [null, null];
+        let query = "SELECT * FROM t_users WHERE u_id = ? AND u_type = ? AND u_social_id = ?";
+        let params = [uId, uType, uSocialId];
+
+        [result, fields] = await pool.query(query, params);
+        if (result.length == 0) { // 존재하지 않는 유저 > 에러
+            res.json({ status: 'ERR_NO_PERMISSION' });
+            return;
+        }
+
+        let piId = f.generateRandomId();
+
+        // 이미지 프로세싱
+        let imagePath = `public/images/users/${uId}/${piId}.jpg`;
+        let originalImagePath = `public/images/users/${uId}/original/${piId}.jpg`;
+        fs.rename(files.image.path, imagePath, () => {
+            fs.copyFile(imagePath, originalImagePath, async () => {
+
+                let originalWidth = imageSize(originalImagePath).width;
+                let rw = 0;
+                while (true) {
+                    if (fs.statSync(imagePath).size > 100000) {
+                        rw += 2;
+                        await sharp(originalImagePath)
+                            .resize({ width: parseInt(originalWidth * ((100 - rw) / 100)) })
+                            .toFile(imagePath);
+                    } else { break; }
+                }
+
+                let [result, fields] = [null, null];
+                query = "SELECT * FROM t_places WHERE p_k_id = ?";
+                params = [pkId];
+
+                [result, fields] = await pool.query(query, params);
+
+                // 플레이스 새로 등록
+                if (result.length == 0) {
+                    query = "INSERT INTO t_places";
+                    query += " (p_k_id, p_name, p_category_name, p_category_group_code, p_category_group_name,";
+                    query += " p_address, p_road_address, p_latitude, p_longitude, p_geometry, p_phone)";
+                    query += " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, POINT(" + pLng +", " + pLat + "), ?)";
+                    params = [
+                        pkId, pName, pCategoryName, pCategoryGroupCode, pCategoryGroupName,
+                        pAddress, pRoadAddress, pLat, pLng, pPhone
+                    ];
+                    [result, fields] = await pool.query(query, params);
+                    pId = result.insertId;
+                }
+
+                // 플레이스 > pickCnt 올려주고 updatedDate 갱신해주고
+                query = "UPDATE t_places SET p_pick_cnt = p_pick_cnt + 1, p_updated_date = NOW() WHERE p_id = ?";
+                params = [pId];
+                [result, fields] = await pool.query(query, params);
+
+                // 픽 등록
+                query = "INSERT INTO t_picks (pi_id, pi_u_id, pi_p_id) VALUES (?, ?, ?)";
+                params = [piId, uId, pid];
+                [result, fields] = await pool.query(query, params);
+
+                res.json({ status: 'OK' });
+            });
+        });
+    });
+});
+
+
+// 로그인
+router.post('/login', async (req, res) => {
+    let type = req.body.type;
+    let socialId = f.ntb(req.body.socialId); // null일 수 있음 (type: EMAIL)
+    let profileImage = f.ntb(req.body.profileImage); // null일 수 있음 (type: KAKAO인 경우에만 가져옴)
+    let email = f.ntb(req.body.email); // null일 수 있음
+    let password = f.ntb(req.body.password); // null일 수 있음 (type: EMAIL인 경우에만 가져옴)
+    let name = f.ntb(req.body.name); // null일 수 있음
+
+    if (f.isNone(type)) {
+        res.json({ status: 'ERR_WRONG_PARAMS' });
+        return;
+    }
+
+    let [result, fields] = [null, null];
+    let query = "SELECT * FROM t_users WHERE u_type LIKE ?";
+    let params = [type];
+
+    if (type === 'APPLE' || type === 'KAKAO') {
+        if (f.isNone(socialId)) {
+            res.json({ status: 'ERR_WRONG_PARAMS' });
+            return;
+        }
+
+        query += " AND u_social_id = ?";
+        params.push(socialId);
+
+    } else if (type === 'EMAIL') {
+        if (f.isNone(email)) {
+            res.json({ status: 'ERR_WRONG_PARAMS' });
+            return;
+        }
+
+        query += " AND u_email = ?";
+        params.push(email);
+    }
+
+    [result, fields] = await pool.query(query, params);
+
+    let user = null;
+    
+    if (result.length == 0) { // 신규 가입
+        let uId = f.generateRandomId();
+
+        query = "";
+        query += "INSERT INTO t_users";
+        query += " (u_id, u_type, u_social_id, u_name, u_nick_name, u_email, u_profile_image, u_status)";
+        query += " VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+        params = [uId, type, socialId, name, name, email, profileImage, 'ACTIVATE'];
+        [result, fields] = await pool.query(query, params);
+
+        query = "SELECT * FROM t_users WHERE u_id = ?";
+        params = [uId];
+        [result, fields] = await pool.query(query, params);
+
+        if (result.length == 0) {
+            res.json({ status: 'ERR_USER' });
+            return;
+        }
+    }
+
+    user = result[0];
+
+    if (!fs.existsSync('public/images/users/' + user.u_id)) {
+        fs.mkdirSync('public/images/users/' + user.u_id);
+    }
+    if (!fs.existsSync('public/images/users/' + user.u_id + '/original')) {
+        fs.mkdirSync('public/images/users/' + user.u_id + '/original');
+    }
+
+    res.json({ status: 'OK', result: { user: user } });
+});
+
+
+// 포스팅
+router.post('/upload/test', (req, res) => {
     let form = new formidable.IncomingForm();
     form.encoding = 'utf-8';
     form.uploadDir = 'upload/tmp';
@@ -218,97 +394,13 @@ router.post('/posting', (req, res) => {
 
     form.parse(req, (error, body, files) => {
         if (error) {
+            console.log(error);
             res.json({ status: 'ERR_UPLOAD' });
             return;
         }
-
-        let uId = body.uId;
-        let pId = body.pId;
-
-        console.log(uId, pId);
 
         res.json({ status: 'OK' });
     });
-});
-
-
-//이미지 저장 
-router.post('/upload/image', async (req, res) => {
-    let form = new formidable.IncomingForm();
-    form.encoding = 'utf-8';
-    form.uploadDir = 'upload/tmp';
-    form.multiples = true;
-    form.keepExtensions = true;
-
-    form.parse(req, function(error, body, files) {
-        if (error) {
-            res.json({ status: 'ERR_UPLOAD' });
-            return;
-        }
-
-        let dataType = body.dataType;
-        let type = body.type; // THUMB, IMAGE, IMAGE_DETAIL
-        let targetId = body.targetId; // 데이터 아이디
-        
-        let imageName = f.generateRandomId();
-        let imageFilePath = `public/images/${dataType}/${imageName}_original.jpg`;
-
-        let reImageFilePath = `public/images/${dataType}/${imageName}.jpg`;
-        let reImagePath = `/images/${dataType}/${imageName}.jpg`;
-
-        fs.rename(files.image.path, imageFilePath, function() {
-
-            let stats = fs.statSync(imageFilePath);
-            let originFileSize = stats.size;
-            let originWidth = imageSize(imageFilePath).width;
-
-            let rw = 0;
-
-            fs.copyFile(imageFilePath, reImageFilePath, async () => {
-
-                if (originFileSize < 200000) {
-        
-                } else {
-                    let reSize = originFileSize;
-                    let per = 0;
-                    while (reSize > 200000) {
-                        per += 5;
-                        rw = parseInt(originWidth * ((100 - per) / 100));
-                        await sharp(imageFilePath)
-                            .resize({width: rw})
-                            .toFile(reImageFilePath);
-                        reSize = fs.statSync(reImageFilePath).size;
-                    }
-                }
-    
-                if (type === 'THUMB') {
-                    // UPDATE data thumbnail
-                    let query = '';
-                    let params = [reImagePath, targetId];
-    
-                    if (dataType === 'food') {
-                        query = 'UPDATE t_foods SET f_thumbnail = ? WHERE f_id = ? ';
-                    } else if (dataType === 'product') {
-                        query = 'UPDATE t_products SET p_thumbnail = ? WHERE p_id = ?';                    
-                    } else {
-                        res.json({status: 'ERR_WRONG_DATA_TYPE'});
-                        return;
-                    }
-                    let [result, fields] = await pool.query(query, params);
-    
-                } 
-                 else {
-                    // INSERT images
-                    let query = "INSERT INTO t_images (i_type, i_path, i_target_id, i_data_type) VALUES (?, ?, ?, ?)";
-                    let params = [type, reImagePath, targetId, dataType];
-                    let [result, fields] = await pool.query(query, params);
-                }
-                res.json({ status: 'OK', reImagePath: reImagePath });
-            });
-
-        });
-    });
-
 });
 
 

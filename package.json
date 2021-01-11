@@ -16,9 +16,12 @@
     "express-session": "^1.17.1",
     "formidable": "^1.2.2",
     "http-errors": "~1.6.3",
+    "image-size": "^0.9.3",
+    "moment": "^2.29.1",
     "morgan": "~1.9.1",
     "mysql": "^2.18.1",
     "mysql2": "^2.2.5",
-    "request": "^2.88.2"
+    "request": "^2.88.2",
+    "sharp": "^0.27.0"
   }
 }
