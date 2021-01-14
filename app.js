@@ -84,6 +84,14 @@ global.f.ntb = function(value) {
     else return value;
 };
 
+// 권한 체크
+global.f.isLogined = function(session) {
+    if (!session.isLogined || !session.uId || !session.uType || !session.uSocialId) {
+        return false;
+    }
+    return true;
+};
+
 
 // global.o.mysql = mysql.createConnection({
 //     host: process.env.MYSQL_HOST,
