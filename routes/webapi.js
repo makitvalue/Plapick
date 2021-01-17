@@ -8,6 +8,8 @@ var fs = require('fs');
 var imageSize = require('image-size');
 const pool = require('../lib/database');
 const locations = require('../lib/locations');
+const apn = require('apn');
+const { pid } = require('process');
 
 
 // 플레이스 검색
@@ -275,7 +277,9 @@ router.post('/login', async (req, res) => {
     let email = f.ntb(req.body.email); // null일 수 있음
     let password = f.ntb(req.body.password); // null일 수 있음 (type: EMAIL인 경우에만 가져옴)
     let name = f.ntb(req.body.name); // null일 수 있음
+    // let push = req.body.push;
     let device = req.body.device;
+    // let deviceToken = req.body.deviceToken;
 
     if (f.isNone(type) || f.isNone(device)) {
         res.json({ status: 'ERR_WRONG_PARAMS' });
@@ -314,7 +318,7 @@ router.post('/login', async (req, res) => {
 
         query = "INSERT INTO t_users";
         query += " (u_id, u_type, u_social_id, u_name, u_nick_name, u_email, u_profile_image, u_status, u_device)";
-        query += " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        query += " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         params = [uId, type, socialId, name, name, email, profileImage, 'ACTIVATE', device];
         [result, fields] = await pool.query(query, params);
 
@@ -331,10 +335,23 @@ router.post('/login', async (req, res) => {
     
     } else { // 마지막 접속시간 / 접속 디바이스 업데이트
         user = result[0];
-        query = "UPDATE t_users SET u_device = ?, u_connected_date = NOW() WHERE u_id = ?";
+        query = "UPDATE t_users SET u_is_logined = 'Y', u_device = ?, u_connected_date = NOW() WHERE u_id = ?";
         params = [device, user.u_id];
         [result, fields] = await pool.query(query, params);
     }
+
+    // 푸시 허용 / 디바이스 토큰이 왔다면
+    // if (push == 'Y' && deviceToken != '') {
+    //     // 디바이스 등록
+    //     query = "SELECT * FROM t_devices WHERE d_id = ? AND d_u_id = ?";
+    //     params = [deviceToken, user.u_id];
+    //     [result, fields] = await pool.query(query, params);
+    
+    //     if (result.length == 0) { // 등록된 디바이스가 없다면
+    //         query = "INSERT INTO t_devices (d_id, d_u_id) VALUES (?, ?)";
+    //         [result, fields] = await pool.query(query, params);
+    //     }
+    // }
 
     if (!fs.existsSync(`public/images/users/${user.u_id}`)) {
         fs.mkdirSync(`public/images/users/${user.u_id}`);
@@ -354,7 +371,19 @@ router.post('/login', async (req, res) => {
 
 
 // 로그아웃
-router.post('/logout', (req, res) => {
+router.post('/logout', async (req, res) => {
+    if (!f.isLogined(req.session)) {
+        res.json({ status: 'ERR_NO_PERMISSION' });
+        return;
+    }
+
+    let uId = req.session.uId;
+
+    let query = "UPDATE t_users SET u_is_logined = 'N' WHERE u_id = ?";
+    let params = [uId];
+
+    let [result, fields] = await pool.query(query, params);
+
     req.session.destroy(() => {
         res.json({ status: 'OK' });
     });
@@ -514,6 +543,122 @@ router.get('/check/nickname', async (req, res) => {
 });
 
 
+router.post('/add/push/notification/device', async (req, res) => {
+    if (!f.isLogined(req.session)) {
+        res.json({ status: 'ERR_NO_PERMISSION' });
+        return;
+    }
+
+    let uId = req.session.uId;
+    let deviceId = req.body.deviceId;
+    let device = req.body.device;
+
+    if (f.isNone(deviceId) || f.isNone(device)) {
+        res.json({ status: 'ERR_WRONG_PARAMS' });
+        return;
+    }
+
+    let query = "SELECT * FROM t_push_notification_devices WHERE pnd_id = ? AND pnd_u_id = ? AND pnd_device = ?";
+    let params = [deviceId, uId, device];
+    let [result, fields] = await pool.query(query, params);
+
+    if (result.length == 0) {
+        query = "INSERT INTO t_push_notification_devices (pnd_id, pnd_u_id, pnd_device) VALUES (?, ?, ?)";
+        params = [deviceId, uId, device];
+        [result, fields] = await pool.query(query, params);
+    }
+
+    res.json({ status: 'OK' });
+});
+
+
+router.post('/set/push/notification', async (req, res) => {
+    if (!f.isLogined(req.session)) {
+        res.json({ status: 'ERR_NO_PERMISSION' });
+        return;
+    }
+
+    let uId = req.session.uId;
+    let action = req.body.action;
+    let isAllowed = req.body.isAllowed;
+    let deviceId = req.body.deviceId;
+    
+    if (f.isNone(action) || f.isNone(isAllowed) || f.isNone(deviceId)) {
+        res.json({ status: 'ERR_WRONG_PARAMS' });
+        return;
+    }
+
+    let query = "";
+    query += "UPDATE t_push_notification_devices SET";
+    if (action == 'MY_PICK_COMMENT') {
+        query += " pnd_is_allowed_my_pick_comment";
+    } else if (action == 'RECOMMENDED_PLACE') {
+        query += " pnd_is_allowed_recommended_place";
+    } else if (action == 'AD') {
+        query += " pnd_is_allowed_ad";
+    } else if (action == 'EVENT_NOTICE') {
+        query += " pnd_is_allowed_event_notice";
+    }
+    query += " = ? WHERE pnd_u_id = ? AND pnd_id = ?";
+    let params = [isAllowed, uId, deviceId];
+
+    let [result, fields] = await pool.query(query, params);
+
+    res.json({ status: 'OK' });
+});
+
+
+router.get('/get/push/notification', async (req, res) => {
+    if (!f.isLogined(req.session)) {
+        res.json({ status: 'ERR_NO_PERMISSION' });
+        return;
+    }
+
+    let uId = req.session.uId;
+    let deviceId = req.query.deviceId;
+
+    let query = "SELECT * FROM t_push_notification_devices WHERE pnd_id = ? AND pnd_u_id = ?";
+    let params = [deviceId, uId];
+
+    let [result, fields] = await pool.query(query, params);
+
+    if (result.length == 0) {
+        res.json({ status: 'ERR_NO_PUSH_NOTIFICATION_DEVICE' });
+        return;
+    }
+
+    let pushNotificationDevice = result[0];
+    res.json({ status: 'OK', result: pushNotificationDevice });
+});
+
+
+router.get('/get/place', async (req, res) => {
+    if (!f.isLogined(req.session)) {
+        res.json({ status: 'ERR_NO_PERMISSION' });
+        return;
+    }
+
+    let pId = req.query.pId;
+
+    if (f.isNone(pId)) {
+        res.json({ status: 'ERR_WRONG_PARAMS' });
+        return;
+    }
+
+    let query = "SELECT * FROM t_places WHERE p_id = ?";
+    let params = [pId];
+    let [result, fields] = await pool.query(query, params);
+
+    if (result.length == 0) {
+        res.json({ status: 'ERR_NO_PLACE' });
+        return;
+    }
+
+    let place = result[0];
+    res.json({ status: 'OK', result: place });
+});
+
+
 // 업로드 테스트 (재현이용)
 router.post('/upload/test', (req, res) => {
     let form = new formidable.IncomingForm();
@@ -531,6 +676,64 @@ router.post('/upload/test', (req, res) => {
 
         res.json({ status: 'OK' });
     });
+});
+
+
+// 푸시 테스트 (전체)
+router.get('/push/test/all', async (req, res) => {
+
+    let alert = req.query.alert;
+
+    let option = {
+        gateway: 'gateway.sandbox.push.apple.com',
+        cert: 'certs/plapickCer.pem',
+        key: 'certs/plapickKey.unencrypted.pem'
+    };
+    let apnProvider = apn.Provider(option);
+
+    let query = "SELECT * FROM t_users AS uTab LEFT JOIN";
+    query += " (SELECT pnd_u_id, GROUP_CONCAT(CONCAT_WS(':', pnd_id, pnd_device) SEPARATOR '|') AS devices";
+    query += " FROM t_push_notification_devices GROUP BY pnd_u_id)";
+    query += " AS pndTab ON uTab.u_id = pndTab.pnd_u_id WHERE u_is_logined LIKE 'Y' AND u_status LIKE 'ACTIVATE'";
+
+    let [userList, fields] = await pool.query(query);
+
+    let iosList = [];
+    let androidList = [];
+    for (let i = 0; i < userList.length; i++) {
+        let user = userList[i];
+        let devices = user.devices;
+
+        if (!devices) continue;
+
+        let splittedDevices = devices.split('|');
+
+        for (let j = 0; j < splittedDevices.length; j++) {
+            let device = splittedDevices[j];
+            let splittedDevice = device.split(':');
+            let dId = splittedDevice[0];
+            let dDevice = splittedDevice[1];
+            
+            if (dDevice == 'IOS') {
+                iosList.push(dId);
+            } else if (dDevice == 'ANDROID') {
+                androidList.push(dId);
+            }
+        }
+    }
+
+    let note = new apn.Notification();
+    note.expiry = Math.floor(Date.now() / 1000) + 3600;
+    note.badge = 1;
+    note.sound = 'ping.aiff';
+    note.alert = alert;
+    note.payload = { 'messageFrom': "메시지ㅎㅎ" };
+    note.topic = 'com.logicador.Plapick';
+
+    let result = await apnProvider.send(note, iosList);
+    console.log(result);
+
+    res.json({ status: 'OK' });
 });
 
 
