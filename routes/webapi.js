@@ -125,7 +125,7 @@ router.get('/get/user/picks', async (req, res) => {
 
     let uId = req.query.uId;
 
-    let query = "SELECT * FROM t_picks WHERE pi_u_id = ?";
+    let query = "SELECT * FROM t_picks AS pTab JOIN t_users AS uTab ON pTab.pi_u_id = uTab.u_id WHERE pi_u_id = ?";
     let params = [uId];
     let [result, fields] = await pool.query(query, params);
 
@@ -146,7 +146,7 @@ router.post('/upload/image', (req, res) => {
     form.uploadDir = 'upload/tmp';
     form.multiples = true;
     form.keepExtensions = true;
-    
+
     let uId = req.session.uId;
 
     form.parse(req, (error, body, files) => {
@@ -167,8 +167,8 @@ router.post('/upload/image', (req, res) => {
                 let originalWidth = imageSize(originalImagePath).width;
                 let rw = 0;
                 while (true) {
-                    if (fs.statSync(imagePath).size > 100000) {
-                        rw += 2;
+                    if (fs.statSync(imagePath).size > 200000) {
+                        rw += 4;
                         await sharp(originalImagePath)
                             .resize({ width: parseInt(originalWidth * ((100 - rw) / 100)) })
                             .toFile(imagePath);
@@ -215,7 +215,7 @@ router.post('/add/pick', async (req, res) => {
     [result, fields] = await pool.query(query, params);
 
     let pId = 0;
-    
+
     // 플레이스 새로 등록
     if (result.length == 0) {
 
@@ -312,13 +312,13 @@ router.post('/login', async (req, res) => {
     [result, fields] = await pool.query(query, params);
 
     let user = null;
-    
+
     if (result.length == 0) { // 신규 가입
         let uId = f.generateRandomId();
 
         query = "INSERT INTO t_users";
         query += " (u_id, u_type, u_social_id, u_name, u_nick_name, u_email, u_profile_image, u_status, u_device)";
-        query += " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        query += " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
         params = [uId, type, socialId, name, name, email, profileImage, 'ACTIVATE', device];
         [result, fields] = await pool.query(query, params);
 
@@ -332,26 +332,13 @@ router.post('/login', async (req, res) => {
         }
 
         user = result[0];
-    
+
     } else { // 마지막 접속시간 / 접속 디바이스 업데이트
         user = result[0];
         query = "UPDATE t_users SET u_is_logined = 'Y', u_device = ?, u_connected_date = NOW() WHERE u_id = ?";
         params = [device, user.u_id];
         [result, fields] = await pool.query(query, params);
     }
-
-    // 푸시 허용 / 디바이스 토큰이 왔다면
-    // if (push == 'Y' && deviceToken != '') {
-    //     // 디바이스 등록
-    //     query = "SELECT * FROM t_devices WHERE d_id = ? AND d_u_id = ?";
-    //     params = [deviceToken, user.u_id];
-    //     [result, fields] = await pool.query(query, params);
-    
-    //     if (result.length == 0) { // 등록된 디바이스가 없다면
-    //         query = "INSERT INTO t_devices (d_id, d_u_id) VALUES (?, ?)";
-    //         [result, fields] = await pool.query(query, params);
-    //     }
-    // }
 
     if (!fs.existsSync(`public/images/users/${user.u_id}`)) {
         fs.mkdirSync(`public/images/users/${user.u_id}`);
@@ -485,7 +472,7 @@ router.post('/set/my/profile', async (req, res) => {
             }
         }
     }
-    
+
     query = "UPDATE t_users SET u_nick_name = ?";
     params = [nickName];
 
@@ -582,7 +569,7 @@ router.post('/set/push/notification', async (req, res) => {
     let action = req.body.action;
     let isAllowed = req.body.isAllowed;
     let deviceId = req.body.deviceId;
-    
+
     if (f.isNone(action) || f.isNone(isAllowed) || f.isNone(deviceId)) {
         res.json({ status: 'ERR_WRONG_PARAMS' });
         return;
@@ -616,6 +603,11 @@ router.get('/get/push/notification', async (req, res) => {
 
     let uId = req.session.uId;
     let deviceId = req.query.deviceId;
+
+    if (f.isNone(deviceId)) {
+        res.json({ status: 'ERR_WRONG_PARAMS' });
+        return;
+    }
 
     let query = "SELECT * FROM t_push_notification_devices WHERE pnd_id = ? AND pnd_u_id = ?";
     let params = [deviceId, uId];
@@ -659,6 +651,54 @@ router.get('/get/place', async (req, res) => {
 });
 
 
+router.post('/remove/pick', async (req, res) => {
+    if (!f.isLogined(req.session)) {
+        res.json({ status: 'ERR_NO_PERMISSION' });
+        return;
+    }
+
+    let uId = req.session.uId;
+    let piId = req.body.piId;
+
+    if (f.isNone(piId)) {
+        res.json({ status: 'ERR_WRONG_PARAMS' });
+        return;
+    }
+
+    let query = "SELECT * FROM t_picks WHERE pi_id = ?";
+    let params = [piId];
+    let [result, fields] = await pool.query(query, params);
+
+    if (result.length == 0) {
+        res.json({ status: 'ERR_NO_PICK' });
+        return;
+    }
+
+    let pick = result[0];
+
+    if (pick.pi_u_id != uId) {
+        res.json({ status: 'ERR_NO_PERMISSION' });
+        return;
+    }
+
+    query = "DELETE FROM t_picks WHERE pi_id = ?";
+    [result, fields] = await pool.query(query, params);
+
+    if (fs.existsSync(`public/images/users/${uId}/${piId}.jpg`)) {
+        fs.unlinkSync(`public/images/users/${uId}/${piId}.jpg`);
+        if (fs.existsSync(`public/images/users/${uId}/original/${piId}.jpg`)) {
+            fs.unlinkSync(`public/images/users/${uId}/original/${piId}.jpg`);
+        }
+    }
+
+    query = "UPDATE t_places SET p_pick_cnt = p_pick_cnt - 1 WHERE p_id = ?";
+    params = [pick.pi_p_id];
+    [result, fields] = await pool.query(query, params);
+
+    res.json({ status: 'OK' });
+});
+
+
 // 업로드 테스트 (재현이용)
 router.post('/upload/test', (req, res) => {
     let form = new formidable.IncomingForm();
@@ -685,10 +725,19 @@ router.get('/push/test/all', async (req, res) => {
     let alert = req.query.alert;
 
     let option = {
-        gateway: 'gateway.sandbox.push.apple.com',
-        cert: 'certs/plapickCer.pem',
-        key: 'certs/plapickKey.unencrypted.pem'
+        token: {
+            key: 'certs/PlapickPush.p8',
+            keyId: process.env.PUSH_NOTIFICATION_KEY_ID,
+            teamId: process.env.PUSH_NOTIFICATION_TEAM_ID
+        },
+        production: false
     };
+
+    // let option = {
+    //     gateway: 'gateway.sandbox.push.apple.com',
+    //     cert: 'certs/plapickCer.pem',
+    //     key: 'certs/plapickKey.unencrypted.pem'
+    // };
     let apnProvider = apn.Provider(option);
 
     let query = "SELECT * FROM t_users AS uTab LEFT JOIN";
@@ -713,7 +762,7 @@ router.get('/push/test/all', async (req, res) => {
             let splittedDevice = device.split(':');
             let dId = splittedDevice[0];
             let dDevice = splittedDevice[1];
-            
+
             if (dDevice == 'IOS') {
                 iosList.push(dId);
             } else if (dDevice == 'ANDROID') {
@@ -784,7 +833,7 @@ function getLocCode(address, roadAddress) {
     }
 
     let selectedChildLocations = locations.childLocations[pPlocCode];
-    
+
     for (let i in selectedChildLocations) {
         if (splitedAddress.length < 2) break;
 
@@ -807,7 +856,7 @@ function getLocCode(address, roadAddress) {
             if (splitedRoadAddress.length < 2) break;
 
             let cloc = selectedChildLocations[i];
-    
+
             let cname = splitedRoadAddress[1];
 
             let code = cloc.code;
