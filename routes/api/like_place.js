@@ -1,10 +1,9 @@
 var express = require('express');
 var router = express.Router();
-const { isLogined, isNone, isInt } = require('../../lib/common');
+const { isLogined, getPlatform, isNone, isInt } = require('../../lib/common');
 const pool = require('../../lib/database');
 
 
-// 픽 삭제
 router.post('', async (req, res) => {
     try {
         let plapickKey = req.body.plapickKey;
@@ -20,43 +19,46 @@ router.post('', async (req, res) => {
         }
 
         let uId = req.session.uId;
-        let piId = req.body.piId;
-    
-        if (isNone(piId)) {
+        let pId = req.body.pId;
+        if (isNone(pId)) {
             res.json({ status: 'ERR_WRONG_PARAMS' });
             return;
         }
 
-        if (!isInt(piId)) {
+        if (!isInt(pId)) {
             res.json({ status: 'ERR_WRONG_PARAMS' });
             return;
         }
-    
-        let query = "SELECT * FROM t_picks WHERE pi_id = ? AND pi_u_id = ?";
-        let params = [piId, uId];
+
+        // 존재하는 플레이스인지 확인
+        let query = "SELECT * FROM t_places WHERE p_id = ?";
+        let params = [pId];
         let [result, fields] = await pool.query(query, params);
-    
         if (result.length == 0) {
-            res.json({ status: 'ERR_NO_PICK' });
+            res.json({ status: 'ERR_NO_PLACE' });
             return;
         }
-    
-        let pick = result[0];
-    
-        query = "DELETE FROM t_picks WHERE pi_id = ? AND pi_u_id = ?";
+
+        query = "SELECT * FROM t_maps_like_place WHERE mlp_u_id = ? AND mlp_p_id = ?";
+        params = [uId, pId];
         [result, fields] = await pool.query(query, params);
-    
-        if (fs.existsSync(`public/images/users/${uId}/${piId}.jpg`)) {
-            fs.unlinkSync(`public/images/users/${uId}/${piId}.jpg`);
-            if (fs.existsSync(`public/images/users/${uId}/original/${piId}.jpg`)) {
-                fs.unlinkSync(`public/images/users/${uId}/original/${piId}.jpg`);
-            }
+        
+        if (result.length > 0) {
+            // 좋아요 취소
+            query = "DELETE FROM t_maps_like_place WHERE mlp_u_id = ? AND mlp_p_id = ?";
+            [result, fields] = await pool.query(query, params);
+            query = "UPDATE t_places SET p_like_cnt = p_like_cnt - 1 WHERE p_id = ?";
+
+        } else {
+            // 좋아요
+            query = "INSERT INTO t_maps_like_place (mlp_u_id, mlp_p_id) VALUES (?, ?)";
+            [result, fields] = await pool.query(query, params);
+            query = "UPDATE t_places SET p_like_cnt = p_like_cnt + 1 WHERE p_id = ?";
         }
-    
-        query = "UPDATE t_places SET p_pick_cnt = p_pick_cnt - 1 WHERE p_id = ?";
-        params = [pick.pi_p_id];
+
+        params = [pId];
         [result, fields] = await pool.query(query, params);
-    
+
         res.json({ status: 'OK' });
 
     } catch(error) {

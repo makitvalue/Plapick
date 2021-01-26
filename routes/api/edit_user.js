@@ -7,6 +7,13 @@ const pool = require('../../lib/database');
 // 사용자 정보 변경 (내정보변경)
 router.post('', async (req, res) => {
     try {
+        let plapickKey = req.body.plapickKey;
+        let platform = getPlatform(plapickKey);
+        if (platform === '') {
+            res.json({ status: 'ERR_PLAPICK_KEY' });
+            return;
+        }
+
         if (!isLogined(req.session)) {
             res.json({ status: 'ERR_NO_PERMISSION' });
             return;

@@ -7,6 +7,13 @@ const pool = require('../../lib/database');
 // 사용자 픽 가져오기
 router.get('', async (req, res) => {
     try {
+        let plapickKey = req.query.plapickKey;
+        let platform = getPlatform(plapickKey);
+        if (platform === '') {
+            res.json({ status: 'ERR_PLAPICK_KEY' });
+            return;
+        }
+        
         if (!isLogined(req.session)) {
             res.json({ status: 'ERR_NO_PERMISSION' });
             return;

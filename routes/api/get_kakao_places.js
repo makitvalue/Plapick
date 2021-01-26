@@ -1,11 +1,10 @@
 var express = require('express');
 var router = express.Router();
-const { isLogined, isNone } = require('../../lib/common');
+const { isLogined, getPlatform, isNone } = require('../../lib/common');
 const pool = require('../../lib/database');
-var request = require('request');
+const request = require('request');
 
 
-// 플레이스 검색
 router.get('', (req, res) => {
     try {
         let plapickKey = req.query.plapickKey;
@@ -14,12 +13,13 @@ router.get('', (req, res) => {
             res.json({ status: 'ERR_PLAPICK_KEY' });
             return;
         }
-        
+
         if (!isLogined(req.session)) {
             res.json({ status: 'ERR_NO_PERMISSION' });
             return;
         }
 
+        let uId = req.session.uId;
         let keyword = req.query.keyword;
 
         if (isNone(keyword)) {
@@ -30,6 +30,7 @@ router.get('', (req, res) => {
         const kakaoUrl = 'https://dapi.kakao.com/v2/local/search/keyword.json';
 
         let placeList = [];
+
         request.get({
             uri: `${kakaoUrl}?query=${encodeURI(keyword)}&page=1`,
             headers: {
@@ -46,7 +47,7 @@ router.get('', (req, res) => {
             placeList = placeList.concat(data.documents);
 
             if (isEnd) {
-                placeList = await contextPlaceList(placeList);
+                placeList = await contextPlaceList(uId, placeList);
                 res.json({ status: 'OK', result: placeList });
                 return;
             }
@@ -67,7 +68,7 @@ router.get('', (req, res) => {
                 placeList = placeList.concat(data.documents);
 
                 if (isEnd) {
-                    placeList = await contextPlaceList(placeList);
+                    placeList = await contextPlaceList(uId, placeList);
                     res.json({ status: 'OK', result: placeList });
                     return;
                 }
@@ -85,7 +86,7 @@ router.get('', (req, res) => {
 
                     data = JSON.parse(response.body);
                     placeList = placeList.concat(data.documents);
-                    placeList = await contextPlaceList(placeList);
+                    placeList = await contextPlaceList(uId, placeList);
 
                     res.json({ status: 'OK', result: placeList });
                     return;
@@ -102,27 +103,75 @@ router.get('', (req, res) => {
 
 // kakao에서 가져온 placeList들 쿼리 날려 p_id, p_like_cnt, p_pick_cnt 가져오기
 // 속도 이슈 있음
-async function contextPlaceList(placeList) {
-    let query = "SELECT * FROM t_places";
-    let params = [];
+async function contextPlaceList(uId, placeList) {
+    let query = "SET SESSION group_concat_max_len = 1000000";
+    let [result, fields] = await pool.query(query);
+
+    query = "SELECT *, piTab.mp AS mostPicks,";
+    query += " IF(mlpTab.cnt = 1, 'Y', 'N') AS isLike,";
+    query += " IF(mcpTab.cnt = 1, 'Y', 'N') AS isComment";
+    query += " FROM t_places AS pTab";
+
+    // 해당 플레이스가 갖고있는 픽들 전부 가져오기
+    // TODO: 나중에 mostpick만 가져오는 기능 추가해야됨 (걍 WHERE 쓰면 될듯)
+    query += " LEFT JOIN";
+    query += " (SELECT pi_p_id,";
+    query += " GROUP_CONCAT(";
+    query += " CONCAT_WS(':', pi_id,";
+    query += " CONCAT_WS(':', pi_like_cnt,";
+    query += " CONCAT_WS(':', pi_comment_cnt,";
+    query += " CONCAT_WS(':', u_id,";
+    query += " CONCAT_WS(':', u_nick_name, uTab.u_profile_image)))))";
+    query += " SEPARATOR '|') AS mp";
+    query += " FROM t_picks AS _piTab";
+    query += " JOIN t_users AS uTab ON _piTab.pi_u_id = uTab.u_id";
+    query += " GROUP BY pi_p_id)";
+    query += " AS piTab ON pTab.p_id = piTab.pi_p_id";
+
+    // 현재 사용자 좋아요 여부
+    query += " LEFT JOIN";
+    query += " (SELECT mlp_p_id, COUNT(*) AS cnt FROM t_maps_like_place WHERE mlp_u_id = ? GROUP BY mlp_p_id)";
+    query += " AS mlpTab ON pTab.p_id = mlpTab.mlp_p_id";
+
+    // 현재 사용자 댓글 여부
+    query += " LEFT JOIN";
+    query += " (SELECT mcp_p_id, COUNT(*) AS cnt FROM t_maps_comment_place WHERE mcp_u_id = ? GROUP BY mcp_p_id)";
+    query += " AS mcpTab ON pTab.p_id = mcpTab.mcp_p_id";
+
+    let params = [uId, uId];
+
+    // 필수값들 0으로 세팅
     for (let i = 0; i < placeList.length; i++) {
         let place = placeList[i];
+        let pkId = place.id;
         place.p_id = 0;
+        place.p_k_id = parseInt(pkId);
         place.p_like_cnt = 0;
         place.p_pick_cnt = 0;
-        if (i == 0) query += " WHERE p_k_id = ?";
-        else query += " OR p_k_id = ?";
-        params.push(place.id);
+        place.p_comment_cnt = 0;
+        place.mostPicks = '';
+        place.isLike = 'N';
+        place.isComment = 'N';
+        if (i == 0) query += " WHERE pTab.p_k_id = ?";
+        else query += " OR pTab.p_k_id = ?";
+        params.push(pkId);
     }
-    let [_placeList, fields] = await pool.query(query, params);
-    for (let i = 0; i < _placeList.length; i++) {
-        let _place = _placeList[i];
+    [result, fields] = await pool.query(query, params);
+
+    // get like, comment, pick 여부
+
+    for (let i = 0; i < result.length; i++) {
+        let res = result[i];
         for (let j = 0; j < placeList.length; j++) {
             let place = placeList[j];
-            if (place.id == _place.p_k_id) {
-                place.p_id = _place.p_id;
-                place.p_like_cnt = _place.p_like_cnt;
-                place.p_pick_cnt = _place.p_pick_cnt;
+            if (place.id == res.p_k_id) {
+                place.p_id = res.p_id;
+                place.p_like_cnt = res.p_like_cnt;
+                place.p_pick_cnt = res.p_pick_cnt;
+                place.p_comment_cnt = res.p_comment_cnt;
+                place.mostPicks = res.mostPicks;
+                place.isLike = res.isLike;
+                place.isComment = res.isComment;
                 break;
             }
         }
