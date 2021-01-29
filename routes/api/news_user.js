@@ -1,10 +1,9 @@
 var express = require('express');
 var router = express.Router();
-const { isLogined, isNone, getPlatform, isInt, ntb } = require('../../lib/common');
+const { isLogined, getPlatform, isNone, isInt } = require('../../lib/common');
 const pool = require('../../lib/database');
 
 
-// 픽 추가
 router.post('', async (req, res) => {
     try {
         let plapickKey = req.body.plapickKey;
@@ -19,39 +18,45 @@ router.post('', async (req, res) => {
             return;
         }
 
-        let uId = req.session.uId;
-        let piId = ntb(req.body.piId);
-        let message = ntb(req.body.message);
-        let pId = ntb(req.body.pId);
+        let authUId = req.session.uId;
+        let uId = req.body.uId;
 
-        if (isNone(piId) || isNone(pId)) {
+        if (isNone(uId)) { 
             res.json({ status: 'ERR_WRONG_PARAMS' });
             return;
         }
 
-        if (!isInt(piId) || !isInt(pId)) {
+        if (!isInt(uId)) {
             res.json({ status: 'ERR_WRONG_PARAMS' });
             return;
         }
-
-        let query = "SELECT * FROM t_places WHERE p_id = ?";
-        let params = [pId];
+        
+        authUId = parseInt(authUId);
+        uId = parseInt(uId);
+        if (authUId == uId) {
+            res.json({ status: 'ERR_AUTH_USER' });
+            return;
+        }
+        
+        let query = "SELECT * FROM t_users WHERE u_id = ?";
+        let params = [uId];
         let [result, fields] = await pool.query(query, params);
-
         if (result.length == 0) {
-            res.json({ status: 'ERR_NO_PLACE' });
+            res.json({ status: 'ERR_NO_USER' });
             return;
         }
 
-        query = "UPDATE t_places SET p_pick_cnt = p_pick_cnt + 1 WHERE p_id = ?";
+        query = "SELECT * FROM t_maps_news WHERE mn_s_u_id = ? AND mn_d_u_id = ?";
+        params = [authUId, uId];
         [result, fields] = await pool.query(query, params);
-
-        // query = "UPDATE t_users SET u_pick_cnt = u_pick_cnt + 1 WHERE u_id = ?";
-        // params = [uId];
-        // [result, fields] = await pool.query(query, params);
-
-        query = "INSERT INTO t_picks (pi_id, pi_u_id, pi_p_id, pi_message) VALUES (?, ?, ?, ?)";
-        params = [piId, uId, pId, message];
+        
+        if (result.length > 0) {
+            // 소식끊기
+            query = "DELETE FROM t_maps_news WHERE mn_s_u_id = ? AND mn_d_u_id = ?";
+        } else {
+            // 소식듣기
+            query = "INSERT INTO t_maps_news (mn_s_u_id, mn_d_u_id) VALUES (?, ?)";
+        }
         [result, fields] = await pool.query(query, params);
 
         res.json({ status: 'OK' });

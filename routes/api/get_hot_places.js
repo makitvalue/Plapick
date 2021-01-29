@@ -25,8 +25,8 @@ router.get('', async (req, res) => {
 
         query = "";
         query += " SELECT pTab.*, piTab.mp AS mostPicks,";
-        query += " IF(mlpTab.cnt = 1, 'Y', 'N') AS isLike,";
-        query += " IF(mcpTab.cnt = 1, 'Y', 'N') AS isComment";
+        query += " IF(mlpTab.cnt > 0, 'Y', 'N') AS isLike,";
+        query += " IF(mcpTab.cnt > 0, 'Y', 'N') AS isComment";
         query += " FROM t_places AS pTab";
 
         // 해당 플레이스가 갖고있는 픽들 전부 가져오기

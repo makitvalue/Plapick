@@ -1,6 +1,6 @@
 var express = require('express');
 var router = express.Router();
-const { isLogined, isNone } = require('../../lib/common');
+const { isLogined, getPlatform } = require('../../lib/common');
 var fs = require('fs');
 
 
@@ -19,20 +19,8 @@ router.get('', (req, res) => {
             return;
         }
 
-        if (isNone(platform)) {
-            res.json({ status: 'ERR_WRONG_PARAMS' });
-            return;
-        }
-
-        if (platform != 'IOS' && platform != 'ANDROID') {
-            res.json({ status: 'ERR_WRONG_PARAMS' });
-            return;
-        }
-
-        let [version, build] = fs.readFileSync('mobile_app_versions/' + platform).toString().split('\n');
-        version = version.trim();
-        build = build.trim();
-        res.json({ status: 'OK', result: {version: version, build: parseInt(build)} });
+        let [versionCode, versionName] = fs.readFileSync('mobile_app_versions/' + platform).toString().split('\n');
+        res.json({ status: 'OK', result: {versionCode: parseInt(versionCode.trim()), versionName: versionName.trim()} });
 
     } catch(error) {
         console.log(error);

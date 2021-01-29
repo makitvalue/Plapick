@@ -1,6 +1,6 @@
 var express = require('express');
 var router = express.Router();
-const { isLogined, generateRandomId } = require('../../lib/common');
+const { isLogined, generateRandomId, getPlatform } = require('../../lib/common');
 var formidable = require('formidable');
 var sharp = require('sharp');
 var fs = require('fs');
@@ -10,13 +10,6 @@ var imageSize = require('image-size');
 // 이미지 업로드
 router.post('', (req, res) => {
     try {
-        let plapickKey = req.body.plapickKey;
-        let platform = getPlatform(plapickKey);
-        if (platform === '') {
-            res.json({ status: 'ERR_PLAPICK_KEY' });
-            return;
-        }
-
         if (!isLogined(req.session)) {
             res.json({ status: 'ERR_NO_PERMISSION' });
             return;
@@ -38,7 +31,17 @@ router.post('', (req, res) => {
                 res.json({ status: 'ERR_UPLOAD' });
                 return;
             }
-    
+        
+            let plapickKey = body.plapickKey;
+            let platform = getPlatform(plapickKey);
+            if (platform === '') {
+                if (fs.existsSync(files.image.path)) {
+                    fs.unlinkSync(files.image.path);
+                }
+                res.json({ status: 'ERR_PLAPICK_KEY' });
+                return;
+            }
+
             let imageName = generateRandomId();
     
             // 이미지 프로세싱
