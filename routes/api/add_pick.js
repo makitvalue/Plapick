@@ -43,8 +43,8 @@ router.post('', async (req, res) => {
             return;
         }
 
-        query = "UPDATE t_places SET p_pick_cnt = p_pick_cnt + 1 WHERE p_id = ?";
-        [result, fields] = await pool.query(query, params);
+        // query = "UPDATE t_places SET p_pick_cnt = p_pick_cnt + 1 WHERE p_id = ?";
+        // [result, fields] = await pool.query(query, params);
 
         // query = "UPDATE t_users SET u_pick_cnt = u_pick_cnt + 1 WHERE u_id = ?";
         // params = [uId];

@@ -35,7 +35,7 @@ router.post('', async (req, res) => {
             return;
         }
 
-        if (actionMode != 'NEWS' && actionMode != 'MY_PICK_COMMENT' && actionMode != 'RECOMMENDED_PLACE' && 
+        if (actionMode != 'FOLLOW' && actionMode != 'MY_PICK_COMMENT' && actionMode != 'RECOMMENDED_PLACE' && 
         actionMode != 'AD' && actionMode != 'EVENT_NOTICE') {
             res.json({ status: 'ERR_WRONG_PARAMS' });
             return;
@@ -52,8 +52,8 @@ router.post('', async (req, res) => {
     
         query = "UPDATE t_push_notification_devices SET";
         
-        if (actionMode == 'NEWS') {
-            query += " pnd_is_allowed_news";
+        if (actionMode == 'FOLLOW') {
+            query += " pnd_is_allowed_follow";
         } else if (actionMode == 'MY_PICK_COMMENT') {
             query += " pnd_is_allowed_my_pick_comment";
         } else if (actionMode == 'RECOMMENDED_PLACE') {

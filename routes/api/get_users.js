@@ -27,14 +27,19 @@ router.get('', async (req, res) => {
             return;
         }
         
-        if (mode != 'KEYWORD' && mode != 'NEWS' && mode != 'MY_NEWS') {
+        if (mode != 'KEYWORD' && mode != 'FOLLOWER' && mode != 'FOLLOWING') {
             res.json({ status: 'ERR_WRONG_PARAMS' });
             return;
         }
         
         let query = "SELECT";
+
+        // 픽 개수
         query += " IFNULL(piTab.cnt, 0) AS pickCnt,";
-        query += " IFNULL(mnUTab.cnt, 0) AS newsCnt,";
+
+        // 팔로워 개수
+        query += " IFNULL(mfFollowerCntTab.cnt, 0) AS followerCnt,";
+
         query += " uTab.u_id, uTab.u_nick_name, uTab.u_profile_image, uTab.u_connected_date";
         let params = [];
         
@@ -48,27 +53,32 @@ router.get('', async (req, res) => {
             query += " FROM t_users AS uTab";
 
         } else {
-            query += " FROM t_maps_news AS mnTab";
+            query += " FROM t_maps_follow AS mfTab";
             query += " JOIN t_users AS uTab ON uTab.u_id =";
-            if (mode == 'NEWS') { // 나의 소식을 듣는 사람들
-                query += " mnTab.mn_s_u_id";
-            } else if (mode == 'MY_NEWS') { // 내가 소식을 듣는 사람들
-                query += " mnTab.mn_d_u_id";
+            
+            if (mode == 'FOLLOWER') { // 팔로워
+                query += " mfTab.mf_follower_u_id";
+
+            } else if (mode == 'FOLLOWING') { // 팔로잉
+                query += " mfTab.mf_u_id";
             }
         }
 
+        // 픽 개수
         query += " LEFT JOIN (SELECT pi_u_id, COUNT(*) AS cnt FROM t_picks GROUP BY pi_u_id) AS piTab ON piTab.pi_u_id = uTab.u_id";
-        query += " LEFT JOIN (SELECT mn_d_u_id, COUNT(*) AS cnt FROM t_maps_news GROUP BY mn_d_u_id) AS mnUTab ON mnUTab.mn_d_u_id = uTab.u_id";
+        
+        // 팔로워 개수
+        query += " LEFT JOIN (SELECT mf_u_id, COUNT(*) AS cnt FROM t_maps_follow GROUP BY mf_u_id) AS mfFollowerCntTab ON mfFollowerCntTab.mf_u_id = uTab.u_id";
 
         if (mode == 'KEYWORD') {
             query += " WHERE uTab.u_nick_name LIKE ? AND uTab.u_id != ?";
             params = [`%${keyword}%`, uId];
 
         } else {
-            if (mode == 'NEWS') {
-                query += " WHERE mnTab.mn_d_u_id = ?";
-            } else {
-                query += " WHERE mnTab.mn_s_u_id = ?";
+            if (mode == 'FOLLOWER') {
+                query += " WHERE mfTab.mf_u_id = ?";
+            } else if (mode == 'FOLLOWING') {
+                query += " WHERE mfTab.mf_follower_u_id = ?";
             }
             params = [uId];
         }

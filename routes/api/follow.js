@@ -33,6 +33,7 @@ router.post('', async (req, res) => {
         
         authUId = parseInt(authUId);
         uId = parseInt(uId);
+        // 자기가 자기 자신을 팔로우할 수 없음
         if (authUId == uId) {
             res.json({ status: 'ERR_AUTH_USER' });
             return;
@@ -46,16 +47,16 @@ router.post('', async (req, res) => {
             return;
         }
 
-        query = "SELECT * FROM t_maps_news WHERE mn_s_u_id = ? AND mn_d_u_id = ?";
-        params = [authUId, uId];
+        query = "SELECT * FROM t_maps_follow WHERE mf_u_id = ? AND mf_follower_u_id = ?";
+        params = [uId, authUId];
         [result, fields] = await pool.query(query, params);
         
         if (result.length > 0) {
-            // 소식끊기
-            query = "DELETE FROM t_maps_news WHERE mn_s_u_id = ? AND mn_d_u_id = ?";
+            // 팔로우 취소
+            query = "DELETE FROM t_maps_follow WHERE mf_u_id = ? AND mf_follower_u_id = ?";
         } else {
-            // 소식듣기
-            query = "INSERT INTO t_maps_news (mn_s_u_id, mn_d_u_id) VALUES (?, ?)";
+            // 팔로우
+            query = "INSERT INTO t_maps_follow (mf_u_id, mf_follower_u_id) VALUES (?, ?)";
         }
         [result, fields] = await pool.query(query, params);
 

@@ -32,41 +32,32 @@ router.get('', async (req, res) => {
             return;
         }
 
-        // 비교를 위한 형변환
-        authUId = parseInt(authUId);
-        uId = parseInt(uId);
-    
-        let query = "SELECT";
-        let params = [];
-        if (authUId === uId) { // 본인
-            query += " uTab.*,";
-            query += " IFNULL(myMnTab.cnt, 0) AS myNewsCnt,";
-            query += " IFNULL(mlpiTab.cnt, 0) AS myLikePickCnt,";
-            query += " IFNULL(mlpTab.cnt, 0) AS myLikePlaceCnt,";
+        let query = " SELECT";
+        query += " uTab.u_id, uTab.u_nick_name, uTab.u_profile_image, uTab.u_connected_date,";
+        
+        // 팔로우 여부
+        query += " IF(mfIsFollowTab.cnt > 0, 'Y', 'N') AS isFollow,";
 
-        } else { // 타인인 경우 유저정보 제한, 소식듣기 여부 가져오기
-            query += " IF(mnUserTab.cnt > 0, 'Y', 'N') AS isNewsUser,";
-            query += " uTab.u_id, uTab.u_nick_name, uTab.u_profile_image, uTab.u_connected_date,";
-        }
+        // 팍고워 개수
+        query += " IFNULL(mfFollowerCntTab.cnt, 0) AS followerCnt,";
 
-        query += " IFNULL(mnTab.cnt, 0) AS newsCnt";
+        // 픽 개수
+        query += " IFNULL(piTab.cnt, 0) AS pickCnt";
+
         query += " FROM t_users AS uTab";
-        
-        if (authUId === uId) { // 본인
-            query += " LEFT JOIN (SELECT mn_s_u_id, COUNT(*) AS cnt FROM t_maps_news GROUP BY mn_s_u_id) AS myMnTab ON myMnTab.mn_s_u_id = uTab.u_id";
-            query += " LEFT JOIN (SELECT mlpi_u_id, COUNT(*) AS cnt FROM t_maps_like_pick GROUP BY mlpi_u_id) AS mlpiTab ON mlpiTab.mlpi_u_id = uTab.u_id";
-            query += " LEFT JOIN (SELECT mlp_u_id, COUNT(*) AS cnt FROM t_maps_like_place GROUP BY mlp_u_id) AS mlpTab ON mlpTab.mlp_u_id = uTab.u_id";
- 
-        } else { // 타인인 경우 소식듣기 여부 가져오기
-            query += " LEFT JOIN (SELECT mn_d_u_id, COUNT(*) AS cnt FROM t_maps_news WHERE mn_s_u_id = ? GROUP BY mn_d_u_id) AS mnUserTab ON mnUserTab.mn_d_u_id = uTab.u_id";
-            params.push(authUId);
-        }
 
-        // 소식을 듣는 사람 개수 가져오기
-        query += " LEFT JOIN (SELECT mn_d_u_id, COUNT(*) AS cnt FROM t_maps_news GROUP BY mn_d_u_id) AS mnTab ON mnTab.mn_d_u_id = uTab.u_id";
+        // 팔로우 여부
+        query += " LEFT JOIN (SELECT mf_u_id, COUNT(*) AS cnt FROM t_maps_follow WHERE mf_follower_u_id = ? GROUP BY mf_u_id) AS mfIsFollowTab ON mfIsFollowTab.mf_u_id = uTab.u_id";
+
+        // 팔로워 개수
+        query += " LEFT JOIN (SELECT mf_u_id, COUNT(*) AS cnt FROM t_maps_follow GROUP BY mf_u_id) AS mfFollowerCntTab ON mfFollowerCntTab.mf_u_id = uTab.u_id";
         
+        // 픽 개수
+        query += " LEFT JOIN (SELECT pi_u_id, COUNT(*) AS cnt FROM t_picks GROUP BY pi_u_id) AS piTab ON piTab.pi_u_id = uTab.u_id";
+
         query += " WHERE uTab.u_id = ?";
-        params.push(uId);
+
+        let params = [authUId, uId];
 
         let [result, fields] = await pool.query(query, params);
     

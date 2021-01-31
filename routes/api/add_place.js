@@ -96,7 +96,7 @@ router.post('', async (req, res) => {
         // 방금 등록한 place이니 당연히 N/N일 것
         // Y를 누르고 들어온 경우 클라이언트에서 처리해줄 것
         place.isLike = 'N';
-        place.isComment = 'N';
+        // place.isComment = 'N';
 
         res.json({ status: 'OK', result: place });
 

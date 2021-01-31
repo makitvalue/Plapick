@@ -2,32 +2,27 @@ var express = require('express');
 var router = express.Router();
 
 
-// GET - Pick
+// GET
 router.use('/get/picks', require('./api/get_picks.js'));
 router.use('/get/recent/picks', require('./api/get_recent_picks.js'));
 
-// GET - Place
-router.use('/get/hot/places', require('./api/get_hot_places.js'));
-// router.use('/get/kakao/places', require('./api/get_kakao_places.js'));
 router.use('/get/places', require('./api/get_places.js'));
+router.use('/get/hot/places', require('./api/get_hot_places.js'));
 
-// GET - User
-router.use('/get/personal', require('./api/get_personal.js'));
-router.use('/get/user', require('./api/get_user.js'));
 router.use('/get/users', require('./api/get_users.js'));
+router.use('/get/user', require('./api/get_user.js'));
 
-// GET - Other
-router.use('/get/push/notification/device', require('./api/get_push_notification_device.js'));
 router.use('/get/version', require('./api/get_version.js'));
+router.use('/get/push/notification/device', require('./api/get_push_notification_device.js'));
 
 router.use('/get/place', require('./api/get_place.js'));
 
 
-// POST - User
+// POST
 router.use('/login', require('./api/login.js'));
 router.use('/logout', require('./api/logout.js'));
+router.use('/follow', require('./api/follow.js'));
 router.use('/check/user/nickname', require('./api/check_user_nickname.js'));
-router.use('/news/user', require('./api/news_user.js'));
 router.use('/edit/user', require('./api/edit_user.js'));
 
 // POST - Place
