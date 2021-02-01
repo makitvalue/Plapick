@@ -113,6 +113,7 @@ router.get('', async (req, res) => {
             let [result, fields] = await pool.query(query);
 
             query = "SELECT pTab.*, piTab.mostPicks AS pMostPicks,";
+            // query += " IF(mlpTab.cnt > 0, 'Y', 'N') AS pIsLike,";
             query += " IFNULL(mlpCntTab.cnt, 0) AS pLikeCnt,";
             query += " IFNULL(mcpTab.cnt, 0) AS pCommentCnt,";
             query += " IFNULL(piCntTab.cnt, 0) AS pPickCnt";
@@ -132,6 +133,11 @@ router.get('', async (req, res) => {
             query += " JOIN t_users AS uTab ON _piTab.pi_u_id = uTab.u_id";
             query += " GROUP BY pi_p_id)";
             query += " AS piTab ON pTab.p_id = piTab.pi_p_id";
+
+            // 현재 사용자 좋아요 여부
+            // query += " LEFT JOIN";
+            // query += " (SELECT mlp_p_id, COUNT(*) AS cnt FROM t_maps_like_place WHERE mlp_u_id = ? GROUP BY mlp_p_id)";
+            // query += " AS mlpTab ON pTab.p_id = mlpTab.mlp_p_id";
 
             // 좋아요 개수
             query += " LEFT JOIN (SELECT mlp_p_id, COUNT(*) AS cnt FROM t_maps_like_place GROUP BY mlp_p_id) AS mlpCntTab ON mlpCntTab.mlp_p_id = pTab.p_id";
@@ -164,9 +170,8 @@ async function contextPlaceList(uId, kakaoPlaceList) {
     let [result, fields] = await pool.query(query);
 
     query = "SELECT pTab.*, piTab.mostPicks AS pMostPicks,";
-    // query += " IF(mlpTab.cnt > 0, 'Y', 'N') AS isLike";
-    // query += " IF(mcpTab.cnt > 0, 'Y', 'N') AS isComment";
-    query += " IFNULL(mlpTab.cnt, 0) AS pLikeCnt,";
+    // query += " IF(mlpTab.cnt > 0, 'Y', 'N') AS pIsLike,";
+    query += " IFNULL(mlpCntTab.cnt, 0) AS pLikeCnt,";
     query += " IFNULL(mcpTab.cnt, 0) AS pCommentCnt,";
     query += " IFNULL(piCntTab.cnt, 0) AS pPickCnt";
 
@@ -178,8 +183,6 @@ async function contextPlaceList(uId, kakaoPlaceList) {
     query += " (SELECT pi_p_id,";
     query += " GROUP_CONCAT(";
     query += " CONCAT_WS(':', pi_id,";
-    // query += " CONCAT_WS(':', pi_like_cnt,";
-    // query += " CONCAT_WS(':', pi_comment_cnt,";
     query += " CONCAT_WS(':', u_id,";
     query += " CONCAT_WS(':', u_nick_name, uTab.u_profile_image)))";
     query += " SEPARATOR '|') AS mostPicks";
@@ -194,7 +197,7 @@ async function contextPlaceList(uId, kakaoPlaceList) {
     // query += " AS mlpTab ON pTab.p_id = mlpTab.mlp_p_id";
 
     // 좋아요 개수
-    query += " LEFT JOIN (SELECT mlp_p_id, COUNT(*) AS cnt FROM t_maps_like_place GROUP BY mlp_p_id) AS mlpTab ON mlpTab.mlp_p_id = pTab.p_id";
+    query += " LEFT JOIN (SELECT mlp_p_id, COUNT(*) AS cnt FROM t_maps_like_place GROUP BY mlp_p_id) AS mlpCntTab ON mlpCntTab.mlp_p_id = pTab.p_id";
 
     // 댓글 개수
     query += " LEFT JOIN (SELECT mcp_p_id, COUNT(*) AS cnt FROM t_maps_comment_place GROUP BY mcp_p_id) AS mcpTab ON mcpTab.mcp_p_id = pTab.p_id";
@@ -202,12 +205,7 @@ async function contextPlaceList(uId, kakaoPlaceList) {
     // 픽 개수
     query += " LEFT JOIN (SELECT pi_p_id, COUNT(*) AS cnt FROM t_picks GROUP BY pi_p_id) AS piCntTab ON piCntTab.pi_p_id = pTab.p_id";
 
-    // 현재 사용자 댓글 여부
-    // query += " LEFT JOIN";
-    // query += " (SELECT mcp_p_id, COUNT(*) AS cnt FROM t_maps_comment_place WHERE mcp_u_id = ? GROUP BY mcp_p_id)";
-    // query += " AS mcpTab ON pTab.p_id = mcpTab.mcp_p_id";
-
-    // let params = [uId, uId];
+    // let params = [uId];
     let params = [];
 
     let placeList = [];
@@ -215,6 +213,7 @@ async function contextPlaceList(uId, kakaoPlaceList) {
         let kakaoPlace = kakaoPlaceList[i];
         let place = {
             p_id: 0,
+
             p_k_id: parseInt(kakaoPlace.id),
             p_name: kakaoPlace.place_name,
             p_category_name: kakaoPlace.category_name,
@@ -225,7 +224,11 @@ async function contextPlaceList(uId, kakaoPlaceList) {
             p_latitude: (isNone(kakaoPlace.y) ? '' : parseFloat(kakaoPlace.y).toFixed(6)),
             p_longitude: (isNone(kakaoPlace.x) ? '' : parseFloat(kakaoPlace.x).toFixed(6)),
             p_phone: kakaoPlace.phone,
+            
+            p_ploc_code: '',
+            p_cloc_code: '',
 
+            pMostPicks: '',
             pLikeCnt: 0,
             pCommentCnt: 0,
             pPickCnt: 0
@@ -247,15 +250,14 @@ async function contextPlaceList(uId, kakaoPlaceList) {
             let place = placeList[j];
             if (place.p_k_id == res.p_k_id) {
                 place.p_id = res.p_id;
-                // place.p_like_cnt = res.p_like_cnt;
-                // place.p_pick_cnt = res.p_pick_cnt;
-                // place.p_comment_cnt = res.p_comment_cnt;
+
+                place.p_ploc_code = res.p_ploc_code;
+                place.p_cloc_code = res.p_cloc_code;
+
                 place.pMostPicks = res.pMostPicks;
                 place.pLikeCnt = res.pLikeCnt;
                 place.pCommentCnt = res.pCommentCnt;
                 place.pPickCnt = res.pPickCnt;
-                // place.isLike = res.isLike;
-                // place.isComment = res.isComment;
                 break;
             }
         }

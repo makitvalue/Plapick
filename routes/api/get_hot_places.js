@@ -23,13 +23,12 @@ router.get('', async (req, res) => {
         let query = "SET SESSION group_concat_max_len = 1000000";
         let [result, fields] = await pool.query(query);
 
-        query = "";
-        query += " SELECT pTab.*, piTab.mostPicks AS pMostPicks,";
-        // query += " IF(mlpTab.cnt > 0, 'Y', 'N') AS isLike";
-        // query += " IF(mcpTab.cnt > 0, 'Y', 'N') AS isComment";
-        query += " IFNULL(mlpTab.cnt, 0) AS pLikeCnt,";
+        query = " SELECT pTab.*, piTab.mostPicks AS pMostPicks,";
+        // query += " IF(mlpTab.cnt > 0, 'Y', 'N') AS pIsLike,";
+        query += " IFNULL(mlpCntTab.cnt, 0) AS pLikeCnt,";
         query += " IFNULL(mcpTab.cnt, 0) AS pCommentCnt,";
         query += " IFNULL(piCntTab.cnt, 0) AS pPickCnt";
+
         query += " FROM t_places AS pTab";
 
         // 해당 플레이스가 갖고있는 픽들 전부 가져오기
@@ -38,8 +37,6 @@ router.get('', async (req, res) => {
         query += " (SELECT pi_p_id,";
         query += " GROUP_CONCAT(";
         query += " CONCAT_WS(':', pi_id,";
-        // query += " CONCAT_WS(':', pi_like_cnt,";
-        // query += " CONCAT_WS(':', pi_comment_cnt,";
         query += " CONCAT_WS(':', u_id,";
         query += " CONCAT_WS(':', u_nick_name, uTab.u_profile_image)))";
         query += " SEPARATOR '|') AS mostPicks";
@@ -54,7 +51,7 @@ router.get('', async (req, res) => {
         // query += " AS mlpTab ON pTab.p_id = mlpTab.mlp_p_id";
 
         // 좋아요 개수
-        query += " LEFT JOIN (SELECT mlp_p_id, COUNT(*) AS cnt FROM t_maps_like_place GROUP BY mlp_p_id) AS mlpTab ON mlpTab.mlp_p_id = pTab.p_id";
+        query += " LEFT JOIN (SELECT mlp_p_id, COUNT(*) AS cnt FROM t_maps_like_place GROUP BY mlp_p_id) AS mlpCntTab ON mlpCntTab.mlp_p_id = pTab.p_id";
 
         // 댓글 개수
         query += " LEFT JOIN (SELECT mcp_p_id, COUNT(*) AS cnt FROM t_maps_comment_place GROUP BY mcp_p_id) AS mcpTab ON mcpTab.mcp_p_id = pTab.p_id";
@@ -62,15 +59,10 @@ router.get('', async (req, res) => {
         // 픽 개수
         query += " LEFT JOIN (SELECT pi_p_id, COUNT(*) AS cnt FROM t_picks GROUP BY pi_p_id) AS piCntTab ON piCntTab.pi_p_id = pTab.p_id";
 
-        // 현재 사용자 댓글 여부
-        // query += " LEFT JOIN";
-        // query += " (SELECT mcp_p_id, COUNT(*) AS cnt FROM t_maps_comment_place WHERE mcp_u_id = ? GROUP BY mcp_p_id)";
-        // query += " AS mcpTab ON pTab.p_id = mcpTab.mcp_p_id";
-
         query += " WHERE pTab.p_id = 1";
 
-        let params = [uId, uId];
-        [result, fields] = await pool.query(query, params);
+        // let params = [uId];
+        [result, fields] = await pool.query(query);
         let pickList = [result[0], result[0], result[0]];
 
         res.json({ status: 'OK', result: pickList });

@@ -58,7 +58,7 @@ router.post('', async (req, res) => {
 
         // 프로필 이미지 수정함 (기존 파일 삭제)
         let originalProfileImage = user.u_profile_image;
-        if (profileImage != originalProfileImage) {
+        if (!isNone(originalProfileImage) && profileImage != originalProfileImage) {
             if (fs.existsSync(`public${originalProfileImage}`)) {
                 fs.unlinkSync(`public${originalProfileImage}`);
                 let imageName = originalProfileImage.replace(`/images/users/${uId}/`, '');

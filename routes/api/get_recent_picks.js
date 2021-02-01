@@ -34,15 +34,11 @@ router.get('', async (req, res) => {
         query += " WHERE piTab.pi_id = 2101282342287394 OR piTab.pi_id = 2101180709242291 OR piTab.pi_id = 2101282343079009";
         [result, fields] = await pool.query(query);
 
-        console.log(result.length);
-
-        let pickList = [
-            result[0], result[1], result[2],
-            result[1], result[1], result[0],
-            result[0], result[2], result[2],
-            result[2], result[0], result[2],
-            result[0], result[1], result[1]
-        ];
+        let pickList = [];
+        for (let i = 0; i < 15; i++) {
+            let rand = Math.floor(Math.random() * 3);
+            pickList.push(result[rand]);
+        }
 
         res.json({ status: 'OK', result: pickList });
 

@@ -20,6 +20,7 @@ router.post('', async (req, res) => {
 
         let uId = req.session.uId;
         let pId = req.body.pId;
+        
         if (isNone(pId)) {
             res.json({ status: 'ERR_WRONG_PARAMS' });
             return;

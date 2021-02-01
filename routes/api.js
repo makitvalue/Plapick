@@ -6,6 +6,7 @@ var router = express.Router();
 router.use('/get/picks', require('./api/get_picks.js'));
 router.use('/get/recent/picks', require('./api/get_recent_picks.js'));
 
+router.use('/get/place', require('./api/get_place.js'));
 router.use('/get/places', require('./api/get_places.js'));
 router.use('/get/hot/places', require('./api/get_hot_places.js'));
 
@@ -14,8 +15,6 @@ router.use('/get/user', require('./api/get_user.js'));
 
 router.use('/get/version', require('./api/get_version.js'));
 router.use('/get/push/notification/device', require('./api/get_push_notification_device.js'));
-
-router.use('/get/place', require('./api/get_place.js'));
 
 
 // POST
