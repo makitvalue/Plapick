@@ -96,7 +96,8 @@ router.post('', async (req, res) => {
         place.pLikeCnt = 0;
         place.pCommentCnt = 0;
         place.pPickCnt = 0;
-        // place.pIsLike = 'N';
+        
+        place.pIsLike = 'N';
 
         res.json({ status: 'OK', result: place });
 

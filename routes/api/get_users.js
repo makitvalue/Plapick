@@ -35,10 +35,10 @@ router.get('', async (req, res) => {
         let query = "SELECT";
 
         // 픽 개수
-        query += " IFNULL(piTab.cnt, 0) AS pickCnt,";
+        query += " IFNULL(piTab.cnt, 0) AS uPickCnt,";
 
         // 팔로워 개수
-        query += " IFNULL(mfFollowerCntTab.cnt, 0) AS followerCnt,";
+        query += " IFNULL(mfFollowerCntTab.cnt, 0) AS uFollowerCnt,";
 
         query += " uTab.u_id, uTab.u_nick_name, uTab.u_profile_image, uTab.u_connected_date";
         let params = [];

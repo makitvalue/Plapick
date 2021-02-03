@@ -36,13 +36,13 @@ router.get('', async (req, res) => {
         query += " uTab.u_id, uTab.u_nick_name, uTab.u_profile_image, uTab.u_connected_date,";
         
         // 팔로우 여부
-        query += " IF(mfIsFollowTab.cnt > 0, 'Y', 'N') AS isFollow,";
+        query += " IF(mfIsFollowTab.cnt > 0, 'Y', 'N') AS uIsFollow,";
 
-        // 팍고워 개수
-        query += " IFNULL(mfFollowerCntTab.cnt, 0) AS followerCnt,";
+        // 팔로워 개수
+        query += " IFNULL(mfFollowerCntTab.cnt, 0) AS uFollowerCnt,";
 
         // 픽 개수
-        query += " IFNULL(piTab.cnt, 0) AS pickCnt";
+        query += " IFNULL(piTab.cnt, 0) AS uPickCnt";
 
         query += " FROM t_users AS uTab";
 

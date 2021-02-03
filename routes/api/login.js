@@ -123,8 +123,8 @@ router.post('', async (req, res) => {
         }
 
         // 더미값 (사용될 일 없는 값)
-        authUser.followerCnt = 0;
-        authUser.pickCnt = 0;
+        authUser.uFollowerCnt = 0;
+        authUser.uPickCnt = 0;
 
         // 세션 생성
         req.session.isLogined = true;

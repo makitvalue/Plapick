@@ -1,34 +1,39 @@
 var express = require('express');
 var router = express.Router();
-const { isLogined, getPlatform, isNone } = require('../../lib/common');
+const { isLogined, getPlatform, isNone, isInt, getPlaceSelectWhatQuery, getPlaceSelectJoinQuery } = require('../../lib/common');
 const pool = require('../../lib/database');
 const request = require('request');
 
 
 router.get('', async (req, res) => {
     try {
-        // let plapickKey = req.query.plapickKey;
-        // let platform = getPlatform(plapickKey);
-        // if (platform === '') {
-        //     res.json({ status: 'ERR_PLAPICK_KEY' });
-        //     return;
-        // }
+        let plapickKey = req.query.plapickKey;
+        let platform = getPlatform(plapickKey);
+        if (platform === '') {
+            res.json({ status: 'ERR_PLAPICK_KEY' });
+            return;
+        }
 
-        // if (!isLogined(req.session)) {
-        //     res.json({ status: 'ERR_NO_PERMISSION' });
-        //     return;
-        // }
+        if (!isLogined(req.session)) {
+            res.json({ status: 'ERR_NO_PERMISSION' });
+            return;
+        }
 
         let uId = req.session.uId;
         let mode = req.query.mode;
         let keyword = req.query.keyword;
+        let latitude = req.query.latitude;
+        let longitude = req.query.longitude;
+        var zoom = req.query.zoom;
+        let plocCode = req.query.plocCode;
+        let clocCode = req.query.clocCode;
 
         if (isNone(mode)) {
             res.json({ status: 'ERR_WRONG_PARAMS' });
             return;
         }
 
-        if (mode != 'KEYWORD' && mode != 'MY_LIKE_PLACE') {
+        if (mode != 'KEYWORD' && mode != 'MY_LIKE_PLACE' && mode != 'COORD' && mode != 'LOCATION') {
             res.json({ status: 'ERR_WRONG_PARAMS' });
             return;
         }
@@ -102,58 +107,93 @@ router.get('', async (req, res) => {
                         placeList = await contextPlaceList(uId, kakaoPlaceList);
 
                         res.json({ status: 'OK', result: placeList });
-                        return;
                     });
                 });
             });
 
         } else if (mode == 'MY_LIKE_PLACE') {
             // 내 좋아요 플레이스
-            let query = "SET SESSION group_concat_max_len = 1000000";
+            let query = "SET SESSION group_concat_max_len = 65535";
             let [result, fields] = await pool.query(query);
 
-            query = "SELECT pTab.*, piTab.mostPicks AS pMostPicks,";
-            // query += " IF(mlpTab.cnt > 0, 'Y', 'N') AS pIsLike,";
-            query += " IFNULL(mlpCntTab.cnt, 0) AS pLikeCnt,";
-            query += " IFNULL(mcpTab.cnt, 0) AS pCommentCnt,";
-            query += " IFNULL(piCntTab.cnt, 0) AS pPickCnt";
-
+            query = getPlaceSelectWhatQuery();
             query += " FROM t_maps_like_place AS mlpTab";
-
             query += " JOIN t_places AS pTab ON pTab.p_id = mlpTab.mlp_p_id";
-
-            query += " LEFT JOIN";
-            query += " (SELECT pi_p_id,";
-            query += " GROUP_CONCAT(";
-            query += " CONCAT_WS(':', pi_id,";
-            query += " CONCAT_WS(':', u_id,";
-            query += " CONCAT_WS(':', u_nick_name, uTab.u_profile_image)))";
-            query += " SEPARATOR '|') AS mostPicks";
-            query += " FROM t_picks AS _piTab";
-            query += " JOIN t_users AS uTab ON _piTab.pi_u_id = uTab.u_id";
-            query += " GROUP BY pi_p_id)";
-            query += " AS piTab ON pTab.p_id = piTab.pi_p_id";
-
-            // 현재 사용자 좋아요 여부
-            // query += " LEFT JOIN";
-            // query += " (SELECT mlp_p_id, COUNT(*) AS cnt FROM t_maps_like_place WHERE mlp_u_id = ? GROUP BY mlp_p_id)";
-            // query += " AS mlpTab ON pTab.p_id = mlpTab.mlp_p_id";
-
-            // 좋아요 개수
-            query += " LEFT JOIN (SELECT mlp_p_id, COUNT(*) AS cnt FROM t_maps_like_place GROUP BY mlp_p_id) AS mlpCntTab ON mlpCntTab.mlp_p_id = pTab.p_id";
-
-            // 댓글 개수
-            query += " LEFT JOIN (SELECT mcp_p_id, COUNT(*) AS cnt FROM t_maps_comment_place GROUP BY mcp_p_id) AS mcpTab ON mcpTab.mcp_p_id = pTab.p_id";
-
-            // 픽 개수
-            query += " LEFT JOIN (SELECT pi_p_id, COUNT(*) AS cnt FROM t_picks GROUP BY pi_p_id) AS piCntTab ON piCntTab.pi_p_id = pTab.p_id";
-
+            query += getPlaceSelectJoinQuery();
             query += " WHERE mlpTab.mlp_u_id = ?";
-            let params = [uId];
+
+            let params = [uId, uId];
             [result, fields] = await pool.query(query, params);
             res.json({ status: 'OK', result: result });
-        }
 
+        } else if (mode == 'COORD') {
+            // 좌표 기준 탐색
+
+            if (isNone(latitude) || isNone(longitude) || isNone(zoom)) {
+                res.json({ status: 'ERR_WRONG_PARAMS' });
+                return;
+            }
+
+            let lat = parseFloat(latitude);
+            let lng = parseFloat(longitude);
+            if (isNaN(lat) || isNaN(lng) || !isInt(zoom)) {
+                res.json({ status: 'ERR_WRONG_PARAMS' });
+                return;
+            }
+
+            let dist = 2000;
+
+            let query = "SET SESSION group_concat_max_len = 65535";
+            let [result, fields] = await pool.query(query);
+
+            query = `${getPlaceSelectWhatQuery()},`;
+            query += ` ST_DISTANCE_SPHERE(POINT(${lng}, ${lat}), pTab.p_geometry) AS dist`;
+            query += " FROM t_places AS pTab";
+            query += getPlaceSelectJoinQuery();
+            
+            query += " WHERE MBRCONTAINS(ST_LINESTRINGFROMTEXT(";
+            query += ` CONCAT('LINESTRING(', ${lng} -  IF(${lng} < 0, 1, -1) * `;
+            query += ` ${dist} / 2 / ST_DISTANCE_SPHERE(POINT(${lng}, ${lat}), POINT(${lng} + IF(${lng} < 0, 1, -1), ${lat})), ' ', ${lat} -  IF(${lng} < 0, 1, -1) * `;
+            query += ` ${dist} / 2 / ST_DISTANCE_SPHERE(POINT(${lng}, ${lat}), POINT(${lng}, ${lat} + IF(${lat} < 0, 1, -1))), ',', ${lng} +  IF(${lng} < 0, 1, -1) * `;
+            query += ` ${dist} / 2 / ST_DISTANCE_SPHERE(POINT(${lng}, ${lat}), POINT(${lng} + IF(${lng} < 0, 1, -1), ${lat})), ' ', ${lat} +  IF(${lng} < 0, 1, -1) * `;
+            query += ` ${dist} / 2 / ST_DISTANCE_SPHERE(POINT(${lng}, ${lat}), POINT(${lng}, ${lat} + IF(${lat} < 0, 1, -1))), ')')), pTab.p_geometry)`;
+            
+            // query += " ORDER BY dist";
+            // 인기순
+            query += " ORDER BY (pLikeCnt + pCommentCnt + pPickCnt) DESC";
+
+            let params = [uId];
+            [result, fields] = await pool.query(query, params);
+
+            res.json({ status: 'OK', result: result });
+
+        } else if (mode == 'LOCATION') {
+            if (isNone(plocCode) || isNone(clocCode)) {
+                res.json({ status: 'ERR_WRONG_PARAMS' });
+                return;
+            }
+
+            if (!isInt(plocCode) || !isInt(clocCode)) {
+                res.json({ status: 'ERR_WRONG_PARAMS' });
+                return;
+            }
+
+            let query = "SET SESSION group_concat_max_len = 65535";
+            let [result, fields] = await pool.query(query);
+
+            query = getPlaceSelectWhatQuery();
+            query += " FROM t_places AS pTab";
+            query += getPlaceSelectJoinQuery();
+            query += " WHERE p_ploc_code = ? AND p_cloc_code = ?";
+
+            // 인기순
+            query += " ORDER BY (pLikeCnt + pCommentCnt + pPickCnt) DESC";
+
+            let params = [uId, plocCode, clocCode];
+            [result, fields] = await pool.query(query, params);
+
+            res.json({ status: 'OK', result: result });
+        }
         
 
     } catch(error) {
@@ -166,47 +206,14 @@ router.get('', async (req, res) => {
 // kakao에서 가져온 placeList들 쿼리 날려 p_id, p_like_cnt, p_pick_cnt 가져오기
 // 속도 이슈 있음
 async function contextPlaceList(uId, kakaoPlaceList) {
-    let query = "SET SESSION group_concat_max_len = 1000000";
+    let query = "SET SESSION group_concat_max_len = 65535";
     let [result, fields] = await pool.query(query);
 
-    query = "SELECT pTab.*, piTab.mostPicks AS pMostPicks,";
-    // query += " IF(mlpTab.cnt > 0, 'Y', 'N') AS pIsLike,";
-    query += " IFNULL(mlpCntTab.cnt, 0) AS pLikeCnt,";
-    query += " IFNULL(mcpTab.cnt, 0) AS pCommentCnt,";
-    query += " IFNULL(piCntTab.cnt, 0) AS pPickCnt";
-
+    query = getPlaceSelectWhatQuery();
     query += " FROM t_places AS pTab";
+    query += getPlaceSelectJoinQuery();
 
-    // 해당 플레이스가 갖고있는 픽들 전부 가져오기
-    // TODO: 나중에 mostpick만 가져오는 기능 추가해야됨 (걍 WHERE 쓰면 될듯)
-    query += " LEFT JOIN";
-    query += " (SELECT pi_p_id,";
-    query += " GROUP_CONCAT(";
-    query += " CONCAT_WS(':', pi_id,";
-    query += " CONCAT_WS(':', u_id,";
-    query += " CONCAT_WS(':', u_nick_name, uTab.u_profile_image)))";
-    query += " SEPARATOR '|') AS mostPicks";
-    query += " FROM t_picks AS _piTab";
-    query += " JOIN t_users AS uTab ON _piTab.pi_u_id = uTab.u_id";
-    query += " GROUP BY pi_p_id)";
-    query += " AS piTab ON pTab.p_id = piTab.pi_p_id";
-
-    // 현재 사용자 좋아요 여부
-    // query += " LEFT JOIN";
-    // query += " (SELECT mlp_p_id, COUNT(*) AS cnt FROM t_maps_like_place WHERE mlp_u_id = ? GROUP BY mlp_p_id)";
-    // query += " AS mlpTab ON pTab.p_id = mlpTab.mlp_p_id";
-
-    // 좋아요 개수
-    query += " LEFT JOIN (SELECT mlp_p_id, COUNT(*) AS cnt FROM t_maps_like_place GROUP BY mlp_p_id) AS mlpCntTab ON mlpCntTab.mlp_p_id = pTab.p_id";
-
-    // 댓글 개수
-    query += " LEFT JOIN (SELECT mcp_p_id, COUNT(*) AS cnt FROM t_maps_comment_place GROUP BY mcp_p_id) AS mcpTab ON mcpTab.mcp_p_id = pTab.p_id";
-
-    // 픽 개수
-    query += " LEFT JOIN (SELECT pi_p_id, COUNT(*) AS cnt FROM t_picks GROUP BY pi_p_id) AS piCntTab ON piCntTab.pi_p_id = pTab.p_id";
-
-    // let params = [uId];
-    let params = [];
+    let params = [uId];
 
     let placeList = [];
     for (let i = 0; i < kakaoPlaceList.length; i++) {
@@ -231,7 +238,9 @@ async function contextPlaceList(uId, kakaoPlaceList) {
             pMostPicks: '',
             pLikeCnt: 0,
             pCommentCnt: 0,
-            pPickCnt: 0
+            pPickCnt: 0,
+
+            pIsLike: 'N'
         };
 
         if (i == 0) query += " WHERE pTab.p_k_id = ?";
@@ -258,6 +267,9 @@ async function contextPlaceList(uId, kakaoPlaceList) {
                 place.pLikeCnt = res.pLikeCnt;
                 place.pCommentCnt = res.pCommentCnt;
                 place.pPickCnt = res.pPickCnt;
+
+                place.pIsLike = res.pIsLike;
+                
                 break;
             }
         }
