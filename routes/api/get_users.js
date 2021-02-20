@@ -6,21 +6,21 @@ const pool = require('../../lib/database');
 
 router.get('', async (req, res) => {
     try {
-        let plapickKey = req.query.plapickKey;
-        let platform = getPlatform(plapickKey);
-        if (platform === '') {
-            res.json({ status: 'ERR_PLAPICK_KEY' });
-            return;
-        }
+        // let plapickKey = req.query.plapickKey;
+        // let platform = getPlatform(plapickKey);
+        // if (platform === '') {
+        //     res.json({ status: 'ERR_PLAPICK_KEY' });
+        //     return;
+        // }
 
-        if (!isLogined(req.session)) {
-            res.json({ status: 'ERR_NO_PERMISSION' });
-            return;
-        }
+        // if (!isLogined(req.session)) {
+        //     res.json({ status: 'ERR_NO_PERMISSION' });
+        //     return;
+        // }
 
-        let uId = req.session.uId;
-        let mode = ntb(req.query.mode);
-        let keyword = ntb(req.query.keyword);
+        let uId = 2101111820031276; // req.session.uId;
+        let mode = req.query.mode;
+        let keyword = req.query.keyword;
 
         if (isNone(mode)) {
             res.json({ status: 'ERR_WRONG_PARAMS' });
@@ -33,15 +33,28 @@ router.get('', async (req, res) => {
         }
         
         let query = "SELECT";
+        let params = [];
 
-        // 픽 개수
-        query += " IFNULL(piTab.cnt, 0) AS uPickCnt,";
+        query += " uTab.u_id, uTab.u_nick_name, uTab.u_profile_image, uTab.u_connected_date,";
+        
+        // 팔로우 여부
+        query += " (SELECT IF(COUNT(*) > 0, 'Y', 'N') FROM t_maps_follow WHERE mf_u_id = uTab.u_id AND mf_follower_u_id = ?) AS isFollow,";
+        params.push(uId);
 
         // 팔로워 개수
-        query += " IFNULL(mfFollowerCntTab.cnt, 0) AS uFollowerCnt,";
+        query += " (SELECT COUNT(*) FROM t_maps_follow WHERE mf_u_id = uTab.u_id) AS followerCnt,";
 
-        query += " uTab.u_id, uTab.u_nick_name, uTab.u_profile_image, uTab.u_connected_date";
-        let params = [];
+        // 팔로잉 개수
+        query += " (SELECT COUNT(*) FROM t_maps_follow WHERE mf_follower_u_id = uTab.u_id) AS followingCnt,";
+
+        // 픽 개수
+        query += " (SELECT COUNT(*) FROM t_picks WHERE pi_u_id = uTab.u_id) AS pickCnt,";
+
+        // 좋아요 픽 개수
+        query += " (SELECT COUNT(*) FROM t_maps_like_pick WHERE mlpi_u_id = uTab.u_id) AS likePickCnt,";
+
+        // 좋아요 플레이스 개수
+        query += " (SELECT COUNT(*) FROM t_maps_like_place WHERE mlp_u_id = uTab.u_id) AS likePlaceCnt";
         
         if (mode == 'KEYWORD') {
             // 닉네임으로 사용자 검색
@@ -50,37 +63,16 @@ router.get('', async (req, res) => {
                 return;
             }
 
-            query += " FROM t_users AS uTab";
+            query += " FROM t_users AS uTab WHERE uTab.u_nick_name LIKE ? AND uTab.u_id != ?";
+            params.push(`%${keyword}%`);
+            params.push(uId);
 
         } else {
             query += " FROM t_maps_follow AS mfTab";
             query += " JOIN t_users AS uTab ON uTab.u_id =";
-            
-            if (mode == 'FOLLOWER') { // 팔로워
-                query += " mfTab.mf_follower_u_id";
 
-            } else if (mode == 'FOLLOWING') { // 팔로잉
-                query += " mfTab.mf_u_id";
-            }
-        }
-
-        // 픽 개수
-        query += " LEFT JOIN (SELECT pi_u_id, COUNT(*) AS cnt FROM t_picks GROUP BY pi_u_id) AS piTab ON piTab.pi_u_id = uTab.u_id";
-        
-        // 팔로워 개수
-        query += " LEFT JOIN (SELECT mf_u_id, COUNT(*) AS cnt FROM t_maps_follow GROUP BY mf_u_id) AS mfFollowerCntTab ON mfFollowerCntTab.mf_u_id = uTab.u_id";
-
-        if (mode == 'KEYWORD') {
-            query += " WHERE uTab.u_nick_name LIKE ? AND uTab.u_id != ?";
-            params = [`%${keyword}%`, uId];
-
-        } else {
-            if (mode == 'FOLLOWER') {
-                query += " WHERE mfTab.mf_u_id = ?";
-            } else if (mode == 'FOLLOWING') {
-                query += " WHERE mfTab.mf_follower_u_id = ?";
-            }
-            params = [uId];
+            query += (mode == 'FOLLOWER') ? " mfTab.mf_follower_u_id WHERE mfTab.mf_u_id = ?" : " mfTab.mf_u_id WHERE mfTab.mf_follower_u_id = ?";
+            params.push(uId);
         }
         
         let [result, fields] = await pool.query(query, params);

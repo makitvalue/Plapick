@@ -18,6 +18,7 @@ router.use('/get/version', require('./api/get_version.js'));
 router.use('/get/push/notification/device', require('./api/get_push_notification_device.js'));
 
 router.use('/get/comments', require('./api/get_comments.js'));
+router.use('/get/qnas', require('./api/get_qnas.js'));
 
 
 // POST
@@ -26,6 +27,7 @@ router.use('/logout', require('./api/logout.js'));
 router.use('/follow', require('./api/follow.js'));
 router.use('/check/user/nickname', require('./api/check_user_nickname.js'));
 router.use('/edit/user', require('./api/edit_user.js'));
+router.use('/add/qna', require('./api/add_qna.js'));
 
 // POST - Place
 router.use('/like/place', require('./api/like_place.js'));

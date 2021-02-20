@@ -59,12 +59,12 @@ router.post('', async (req, res) => {
         // SELECT t_users
         [result, fields] = await pool.query(query, params);
 
-        let authUser = null;
+        let uId = null;
 
         if (result.length == 0) {
             // 신규 가입
+            uId = generateRandomId();
             let nickName = name;
-            let uId = generateRandomId();
 
             if (type == 'EMAIL') {
                 // nickName 길이 체크
@@ -101,37 +101,66 @@ router.post('', async (req, res) => {
             params = [uId, type, socialId, name, nickName, email, profileImage, 'ACTIVATE', platform];
             [result, fields] = await pool.query(query, params);
 
-            query = "SELECT * FROM t_users WHERE u_id = ?";
-            params = [uId];
-            [result, fields] = await pool.query(query, params);
-            authUser = result[0];
+            // query = "SELECT * FROM t_users WHERE u_id = ?";
+            // params = [uId];
+            // [result, fields] = await pool.query(query, params);
+            // authUser = result[0];
 
         } else {
             // 기존 회원임, 마지막 접속시간 / 접속 디바이스 업데이트
-            authUser = result[0];
+            uId = result[0].u_id;
             query = "UPDATE t_users SET u_is_logined = 'Y', u_last_login_platform = ?, u_connected_date = NOW() WHERE u_id = ?";
-            params = [platform, authUser.u_id];
+            params = [platform, uId];
             [result, fields] = await pool.query(query, params);
         }
 
-        // 사용자 폴더 없으면 생성해주기
-        if (!fs.existsSync(`public/images/users/${authUser.u_id}`)) {
-            fs.mkdirSync(`public/images/users/${authUser.u_id}`);
-        }
-        if (!fs.existsSync(`public/images/users/${authUser.u_id}/original`)) {
-            fs.mkdirSync(`public/images/users/${authUser.u_id}/original`);
+        query = " SELECT uTab.*,";
+        params = [];
+
+        // 팔로워 개수
+        query += " (SELECT COUNT(*) FROM t_maps_follow WHERE mf_u_id = uTab.u_id) AS followerCnt,";
+
+        // 팔로잉 개수
+        query += " (SELECT COUNT(*) FROM t_maps_follow WHERE mf_follower_u_id = uTab.u_id) AS followingCnt,";
+
+        // 픽 개수
+        query += " (SELECT COUNT(*) FROM t_picks WHERE pi_u_id = uTab.u_id) AS pickCnt,";
+
+        // 좋아요 픽 개수
+        query += " (SELECT COUNT(*) FROM t_maps_like_pick WHERE mlpi_u_id = uTab.u_id) AS likePickCnt,";
+
+        // 좋아요 플레이스 개수
+        query += " (SELECT COUNT(*) FROM t_maps_like_place WHERE mlp_u_id = uTab.u_id) AS likePlaceCnt";
+
+        query += " FROM t_users AS uTab";
+        
+        query += " WHERE uTab.u_id = ?";
+        params.push(uId);
+
+        [result, fields] = await pool.query(query, params);
+    
+        if (result.length == 0) {
+            res.json({ status: 'ERR_NO_USER' });
+            return;
         }
 
-        // 더미값 (사용될 일 없는 값)
-        authUser.uFollowerCnt = 0;
-        authUser.uPickCnt = 0;
+        let user = result[0];
+        user.isFollow = "N";
+
+        // 사용자 폴더 없으면 생성해주기
+        if (!fs.existsSync(`public/images/users/${user.u_id}`)) {
+            fs.mkdirSync(`public/images/users/${user.u_id}`);
+        }
+        if (!fs.existsSync(`public/images/users/${user.u_id}/original`)) {
+            fs.mkdirSync(`public/images/users/${user.u_id}/original`);
+        }
 
         // 세션 생성
         req.session.isLogined = true;
-        req.session.uId = authUser.u_id;
-        req.session.uType = authUser.u_type;
+        req.session.uId = user.u_id;
+        req.session.uType = user.u_type;
         req.session.save(() => {
-            res.json({ status: 'OK', result: authUser });
+            res.json({ status: 'OK', result: user });
         });
 
     } catch(error) {

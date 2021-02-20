@@ -1,6 +1,6 @@
 var express = require('express');
 var router = express.Router();
-const { isLogined, getPlatform, isNone, isValidStrLength } = require('../../lib/common');
+const { isLogined, getPlatform, isNone } = require('../../lib/common');
 const pool = require('../../lib/database');
 
 
@@ -19,27 +19,27 @@ router.post('', async (req, res) => {
         }
 
         let uId = req.session.uId;
-        let nickName = req.body.nickName;
+        let title = req.body.title;
+        let content = req.body.content;
 
-        if (isNone(nickName)) {
+        if (isNone(title) || isNone(content)) {
             res.json({ status: 'ERR_WRONG_PARAMS' });
             return;
         }
 
-        if (nickName.length < 2 || nickName.length > 16) {
-            res.json({ status: 'WRONG_NICKNAME' });
+        if (title.length < 4 || title.length > 20) {
+            res.json({ status: 'ERR_TITLE' });
             return;
         }
 
-        // nickName 중복 체크
-        let query = "SELECT * FROM t_users WHERE u_nick_name = ? AND u_id != ?";
-        let params = [nickName, uId];
-        let [result, fields] = await pool.query(query, params);
-
-        if (result.length > 0) {
-            res.json({ status: 'EXISTS_NICKNAME' });
+        if (content.length < 20 || content.length > 100) {
+            res.json({ status: 'ERR_CONTENT' });
             return;
         }
+
+        let query = "INSERT INTO t_qnas (q_u_id, q_title, q_content) VALUES (?, ?, ?)";
+        let params = [uId, title, content];
+        await pool.query(query, params);
 
         res.json({ status: 'OK' });
 
