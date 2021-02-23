@@ -58,7 +58,7 @@ router.post('', async (req, res) => {
             // 팔로우
             query = "INSERT INTO t_maps_follow (mf_u_id, mf_follower_u_id) VALUES (?, ?)";
         }
-        [result, fields] = await pool.query(query, params);
+        await pool.query(query, params);
 
         res.json({ status: 'OK' });
 

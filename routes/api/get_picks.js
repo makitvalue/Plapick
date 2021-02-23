@@ -18,9 +18,10 @@ router.get('', async (req, res) => {
         //     return;
         // }
 
+        let authUId = req.session.uId;
         let page = req.query.page;
         let limit = req.query.limit;
-        let uId = req.query.uId;
+        let uId = req.query.uId; // 이게 들어오면 해당 유저의 id
         let pId = req.query.pId;
 
         if (isNone(page)) {
@@ -44,23 +45,18 @@ router.get('', async (req, res) => {
 
         let query = "SELECT piTab.*,";
 
+        // 좋아요 여부
+        query += " IF((SELECT COUNT(*) FROM t_maps_like_pick WHERE mlpi_u_id = ? AND mlpi_pi_id = piTab.pi_id) > 0, 'Y', 'N') AS isLike,";
+
         // 좋아요 개수
         query += " (SELECT COUNT(*) FROM t_maps_like_pick WHERE mlpi_pi_id = piTab.pi_id) AS likeCnt,";
 
         // 댓글 개수
         query += " (SELECT COUNT(*) FROM t_maps_comment_pick WHERE mcpi_pi_id = piTab.pi_id) AS commentCnt";
-
-        // query += " IFNULL(mlpiTab.cnt, 0) AS piLikeCnt,";
-        // query += " IFNULL(mcpiTab.cnt, 0) AS piCommentCnt";
-
-        // query += " uTab.u_id, uTab.u_nick_name, uTab.u_profile_image, uTab.u_connected_date";
+        
         query += " FROM t_picks AS piTab";
-        // query += " JOIN t_places AS pTab ON piTab.pi_p_id = pTab.p_id ";
-        // query += " JOIN t_users AS uTab ON piTab.pi_u_id = uTab.u_id ";
-
-        // query += " LEFT JOIN (SELECT mlpi_pi_id, COUNT(*) AS cnt FROM t_maps_like_pick GROUP BY mlpi_pi_id) AS mlpiTab ON mlpiTab.mlpi_pi_id = piTab.pi_id";
-        // query += " LEFT JOIN (SELECT mcpi_pi_id, COUNT(*) AS cnt FROM t_maps_comment_pick GROUP BY mcpi_pi_id) AS mcpiTab ON mcpiTab.mcpi_pi_id = piTab.pi_id";
-        let params = [];
+        
+        let params = [authUId];
 
         if (!isNone(uId)) {
             if (!isInt(uId)) {

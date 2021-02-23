@@ -47,13 +47,13 @@ router.post('', async (req, res) => {
         if (result.length > 0) {
             // 좋아요 취소
             query = "DELETE FROM t_maps_like_place WHERE mlp_u_id = ? AND mlp_p_id = ?";
-            [result, fields] = await pool.query(query, params);
+            await pool.query(query, params);
             // query = "UPDATE t_places SET p_like_cnt = p_like_cnt - 1 WHERE p_id = ?";
 
         } else {
             // 좋아요
             query = "INSERT INTO t_maps_like_place (mlp_u_id, mlp_p_id) VALUES (?, ?)";
-            [result, fields] = await pool.query(query, params);
+            await pool.query(query, params);
             // query = "UPDATE t_places SET p_like_cnt = p_like_cnt + 1 WHERE p_id = ?";
         }
 

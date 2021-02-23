@@ -1,25 +1,26 @@
 var express = require('express');
 var router = express.Router();
-const { isLogined, getPlatform, isNone, isInt, getPlaceSelectWhatQuery, getPlaceSelectJoinQuery } = require('../../lib/common');
+const { isLogined, getPlatform, isNone, isInt, getPlaceSelectWhatQuery } = require('../../lib/common');
 const pool = require('../../lib/database');
 const request = require('request');
 
 
 router.get('', async (req, res) => {
     try {
-        let plapickKey = req.query.plapickKey;
-        let platform = getPlatform(plapickKey);
-        if (platform === '') {
-            res.json({ status: 'ERR_PLAPICK_KEY' });
-            return;
-        }
+        // let plapickKey = req.query.plapickKey;
+        // let platform = getPlatform(plapickKey);
+        // if (platform === '') {
+        //     res.json({ status: 'ERR_PLAPICK_KEY' });
+        //     return;
+        // }
 
-        if (!isLogined(req.session)) {
-            res.json({ status: 'ERR_NO_PERMISSION' });
-            return;
-        }
+        // if (!isLogined(req.session)) {
+        //     res.json({ status: 'ERR_NO_PERMISSION' });
+        //     return;
+        // }
 
-        let uId = req.session.uId;
+        let authUId = req.session.uId;
+        let uId = req.query.uId;
         let mode = req.query.mode;
         let keyword = req.query.keyword;
         let latitude = req.query.latitude;
@@ -33,7 +34,7 @@ router.get('', async (req, res) => {
             return;
         }
 
-        if (mode != 'KEYWORD' && mode != 'MY_LIKE_PLACE' && mode != 'COORD' && mode != 'LOCATION') {
+        if (mode != 'KEYWORD' && mode != 'LIKE_PLACE' && mode != 'COORD' && mode != 'LOCATION') {
             res.json({ status: 'ERR_WRONG_PARAMS' });
             return;
         }
@@ -65,7 +66,7 @@ router.get('', async (req, res) => {
                 kakaoPlaceList = kakaoPlaceList.concat(data.documents);
 
                 if (isEnd) {
-                    placeList = await contextPlaceList(uId, kakaoPlaceList);
+                    placeList = await contextPlaceList(authUId, kakaoPlaceList);
                     res.json({ status: 'OK', result: placeList });
                     return;
                 }
@@ -86,7 +87,7 @@ router.get('', async (req, res) => {
                     kakaoPlaceList = kakaoPlaceList.concat(data.documents);
 
                     if (isEnd) {
-                        placeList = await contextPlaceList(uId, kakaoPlaceList);
+                        placeList = await contextPlaceList(authUId, kakaoPlaceList);
                         res.json({ status: 'OK', result: placeList });
                         return;
                     }
@@ -104,25 +105,30 @@ router.get('', async (req, res) => {
 
                         data = JSON.parse(response.body);
                         kakaoPlaceList = kakaoPlaceList.concat(data.documents);
-                        placeList = await contextPlaceList(uId, kakaoPlaceList);
+                        placeList = await contextPlaceList(authUId, kakaoPlaceList);
 
                         res.json({ status: 'OK', result: placeList });
                     });
                 });
             });
 
-        } else if (mode == 'MY_LIKE_PLACE') {
-            // 내 좋아요 플레이스
+        } else if (mode == 'LIKE_PLACE') {
+            // 좋아요 플레이스
+            if (isNone(uId)) {
+                res.json({ status: 'ERR_WRONG_PARAMS' });
+                return;
+            }
+
             let query = "SET SESSION group_concat_max_len = 65535";
             let [result, fields] = await pool.query(query);
 
             query = getPlaceSelectWhatQuery();
             query += " FROM t_maps_like_place AS mlpTab";
             query += " JOIN t_places AS pTab ON pTab.p_id = mlpTab.mlp_p_id";
-            query += getPlaceSelectJoinQuery();
+            // query += getPlaceSelectJoinQuery();
             query += " WHERE mlpTab.mlp_u_id = ?";
 
-            let params = [uId, uId];
+            let params = [authUId, uId];
             [result, fields] = await pool.query(query, params);
             res.json({ status: 'OK', result: result });
 
@@ -149,7 +155,7 @@ router.get('', async (req, res) => {
             query = `${getPlaceSelectWhatQuery()},`;
             query += ` ST_DISTANCE_SPHERE(POINT(${lng}, ${lat}), pTab.p_geometry) AS dist`;
             query += " FROM t_places AS pTab";
-            query += getPlaceSelectJoinQuery();
+            // query += getPlaceSelectJoinQuery();
             
             query += " WHERE MBRCONTAINS(ST_LINESTRINGFROMTEXT(";
             query += ` CONCAT('LINESTRING(', ${lng} -  IF(${lng} < 0, 1, -1) * `;
@@ -160,9 +166,9 @@ router.get('', async (req, res) => {
             
             // query += " ORDER BY dist";
             // 인기순
-            query += " ORDER BY (pLikeCnt + pCommentCnt + pPickCnt) DESC";
+            query += " ORDER BY (likeCnt + commentCnt + pickCnt) DESC";
 
-            let params = [uId];
+            let params = [authUId];
             [result, fields] = await pool.query(query, params);
 
             res.json({ status: 'OK', result: result });
@@ -183,13 +189,13 @@ router.get('', async (req, res) => {
 
             query = getPlaceSelectWhatQuery();
             query += " FROM t_places AS pTab";
-            query += getPlaceSelectJoinQuery();
-            query += " WHERE p_ploc_code = ? AND p_cloc_code = ?";
+            // query += getPlaceSelectJoinQuery();
+            query += " WHERE p_ploc_code LIKE ? AND p_cloc_code LIKE ?";
 
             // 인기순
-            query += " ORDER BY (pLikeCnt + pCommentCnt + pPickCnt) DESC";
+            query += " ORDER BY (likeCnt + commentCnt + pickCnt) DESC";
 
-            let params = [uId, plocCode, clocCode];
+            let params = [authUId, plocCode, clocCode];
             [result, fields] = await pool.query(query, params);
 
             res.json({ status: 'OK', result: result });
@@ -205,15 +211,18 @@ router.get('', async (req, res) => {
 
 // kakao에서 가져온 placeList들 쿼리 날려 p_id, p_like_cnt, p_pick_cnt 가져오기
 // 속도 이슈 있음
-async function contextPlaceList(uId, kakaoPlaceList) {
+async function contextPlaceList(authUId, kakaoPlaceList) {
+    if (kakaoPlaceList.length == 0) return [];
+
     let query = "SET SESSION group_concat_max_len = 65535";
     let [result, fields] = await pool.query(query);
 
     query = getPlaceSelectWhatQuery();
     query += " FROM t_places AS pTab";
-    query += getPlaceSelectJoinQuery();
+    // query += getPlaceSelectJoinQuery();
+    query += " WHERE pTab.p_k_id IN (";
 
-    let params = [uId];
+    let params = [authUId];
 
     let placeList = [];
     for (let i = 0; i < kakaoPlaceList.length; i++) {
@@ -235,24 +244,24 @@ async function contextPlaceList(uId, kakaoPlaceList) {
             p_ploc_code: '',
             p_cloc_code: '',
 
-            pMostPicks: '',
-            pLikeCnt: 0,
-            pCommentCnt: 0,
-            pPickCnt: 0,
-
-            pIsLike: 'N'
+            picks: '',
+            isLike: 'N',
+            likeCnt: 0,
+            commentCnt: 0,
+            pickCnt: 0,
         };
 
-        if (i == 0) query += " WHERE pTab.p_k_id = ?";
-        else query += " OR pTab.p_k_id = ?";
+        if (i > 0) query += " ,";
+        query += " ?";
         params.push(place.p_k_id);
 
         placeList.push(place);
     }
+    query += " )";
+
     [result, fields] = await pool.query(query, params);
 
     // get like, comment, pick 여부
-
     for (let i = 0; i < result.length; i++) {
         let res = result[i];
         for (let j = 0; j < placeList.length; j++) {
@@ -263,12 +272,11 @@ async function contextPlaceList(uId, kakaoPlaceList) {
                 place.p_ploc_code = res.p_ploc_code;
                 place.p_cloc_code = res.p_cloc_code;
 
-                place.pMostPicks = res.pMostPicks;
-                place.pLikeCnt = res.pLikeCnt;
-                place.pCommentCnt = res.pCommentCnt;
-                place.pPickCnt = res.pPickCnt;
-
-                place.pIsLike = res.pIsLike;
+                place.picks = res.picks;
+                place.isLike = res.isLike;
+                place.likeCnt = res.likeCnt;
+                place.commentCnt = res.commentCnt;
+                place.pickCnt = res.pickCnt;
                 
                 break;
             }

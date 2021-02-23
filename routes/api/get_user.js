@@ -19,8 +19,7 @@ router.get('', async (req, res) => {
         //     return;
         // }
 
-        // let authUId = req.session.uId; // 내 uId
-        let authUId = 2101180452162178;
+        let authUId = req.session.uId; // 내 uId
         let uId = req.query.uId; // 대상 uId
         
         if (isNone(uId)) {

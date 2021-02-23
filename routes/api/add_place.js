@@ -1,6 +1,6 @@
 var express = require('express');
 var router = express.Router();
-const { isLogined, getPlatform, isNone, isInt, ntb, getLocCode } = require('../../lib/common');
+const { isLogined, getPlatform, isNone, isInt, ntb, getLocCode, getPlaceSelectWhatQuery } = require('../../lib/common');
 const pool = require('../../lib/database');
 
 
@@ -18,16 +18,17 @@ router.post('', async (req, res) => {
             return;
         }
 
-        let kId = ntb(req.body.kId);
-        let name = ntb(req.body.name);
-        let categoryName = ntb(req.body.categoryName);
-        let categoryGroupCode = ntb(req.body.categoryGroupCode);
-        let categoryGroupName = ntb(req.body.categoryGroupName);
-        let address = ntb(req.body.address);
-        let roadAddress = ntb(req.body.roadAddress);
-        let latitude = ntb(req.body.latitude);
-        let longitude = ntb(req.body.longitude);
-        let phone = ntb(req.body.phone);
+        let uId = req.session.uId;
+        let kId = req.body.kId;
+        let name = req.body.name;
+        let categoryName = req.body.categoryName;
+        let categoryGroupCode = req.body.categoryGroupCode;
+        let categoryGroupName = req.body.categoryGroupName;
+        let address = req.body.address;
+        let roadAddress = req.body.roadAddress;
+        let latitude = req.body.latitude;
+        let longitude = req.body.longitude;
+        let phone = req.body.phone;
 
         if (isNone(kId) || isNone(name)) {
             res.json({ status: 'ERR_WRONG_PARAMS' });
@@ -38,8 +39,6 @@ router.post('', async (req, res) => {
             res.json({ status: 'ERR_WRONG_PARAMS' });
             return;
         }
-
-        kId = parseInt(kId);
 
         if ((!isNone(latitude) && isNone(longitude)) || (isNone(latitude) && !isNone(longitude))) {
             res.json({ status: 'ERR_WRONG_PARAMS' });
@@ -58,9 +57,15 @@ router.post('', async (req, res) => {
             latitude = latitude.toFixed(6);
             longitude = longitude.toFixed(6);
         }
+
+        let query = "SET SESSION group_concat_max_len = 65535";
+        await pool.query(query);
+
+        query = getPlaceSelectWhatQuery();
+        query += " FROM t_places AS pTab";
+        query += " WHERE pTab.p_k_id = ?";
         
-        let query = "SELECT * FROM t_places WHERE p_k_id = ?";
-        let params = [kId];
+        let params = [uId, kId];
         let [result, fields] = await pool.query(query, params);
 
         if (result.length == 0) {
@@ -86,18 +91,20 @@ router.post('', async (req, res) => {
 
             [result, fields] = await pool.query(query, params);
 
-            query = "SELECT * FROM t_places WHERE p_id = ?";
-            params = [result.insertId];
+            let pId = result.insertId;
+
+            query = "SET SESSION group_concat_max_len = 65535";
+            await pool.query(query);
+
+            query = getPlaceSelectWhatQuery();
+            query += " FROM t_places AS pTab";
+            query += " WHERE pTab.p_id = ?";
+            
+            params = [uId, pId];
             [result, fields] = await pool.query(query, params);
         }
 
         let place = result[0];
-
-        place.pLikeCnt = 0;
-        place.pCommentCnt = 0;
-        place.pPickCnt = 0;
-        
-        place.pIsLike = 'N';
 
         res.json({ status: 'OK', result: place });
 

@@ -1,23 +1,23 @@
 var express = require('express');
 var router = express.Router();
-const { isLogined, isInt, isNone, getPlatform, getPlaceSelectWhatQuery, getPlaceSelectJoinQuery } = require('../../lib/common');
+const { isLogined, isInt, isNone, getPlatform, getPlaceSelectWhatQuery } = require('../../lib/common');
 const pool = require('../../lib/database');
 
 
 // 플레이스 가져오기
 router.get('', async (req, res) => {
     try {
-        let plapickKey = req.query.plapickKey;
-        let platform = getPlatform(plapickKey);
-        if (platform === '') {
-            res.json({ status: 'ERR_PLAPICK_KEY' });
-            return;
-        }
+        // let plapickKey = req.query.plapickKey;
+        // let platform = getPlatform(plapickKey);
+        // if (platform === '') {
+        //     res.json({ status: 'ERR_PLAPICK_KEY' });
+        //     return;
+        // }
         
-        if (!isLogined(req.session)) {
-            res.json({ status: 'ERR_NO_PERMISSION' });
-            return;
-        }
+        // if (!isLogined(req.session)) {
+        //     res.json({ status: 'ERR_NO_PERMISSION' });
+        //     return;
+        // }
 
         let uId = req.session.uId;
         let pId = req.query.pId;
@@ -33,22 +33,23 @@ router.get('', async (req, res) => {
         }
 
         let query = "SET SESSION group_concat_max_len = 65535";
-        let [result, fields] = await pool.query(query);
+        await pool.query(query);
     
         query = getPlaceSelectWhatQuery();
         query += " FROM t_places AS pTab";
-        query += getPlaceSelectJoinQuery();
+        // query += getPlaceSelectJoinQuery();
         query += " WHERE p_id = ?";
         
         let params = [uId, pId];
-        [result, fields] = await pool.query(query, params);
+        let [result, fields] = await pool.query(query, params);
     
         if (result.length == 0) {
             res.json({ status: 'ERR_NO_PLACE' });
             return;
         }
     
-        res.json({ status: 'OK', result: result[0] });
+        let place = result[0];
+        res.json({ status: 'OK', result: place });
 
     } catch(error) {
         console.log(error);

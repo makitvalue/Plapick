@@ -18,7 +18,8 @@ router.get('', async (req, res) => {
         //     return;
         // }
 
-        let uId = 2101111820031276; // req.session.uId;
+        let authUId = req.session.uId;
+        let uId = req.query.uId; // FOLLOWER, FOLLOWING 시 해당 유저
         let mode = req.query.mode;
         let keyword = req.query.keyword;
 
@@ -31,6 +32,8 @@ router.get('', async (req, res) => {
             res.json({ status: 'ERR_WRONG_PARAMS' });
             return;
         }
+
+        authUId = parseInt(authUId);
         
         let query = "SELECT";
         let params = [];
@@ -39,7 +42,7 @@ router.get('', async (req, res) => {
         
         // 팔로우 여부
         query += " (SELECT IF(COUNT(*) > 0, 'Y', 'N') FROM t_maps_follow WHERE mf_u_id = uTab.u_id AND mf_follower_u_id = ?) AS isFollow,";
-        params.push(uId);
+        params.push(authUId);
 
         // 팔로워 개수
         query += " (SELECT COUNT(*) FROM t_maps_follow WHERE mf_u_id = uTab.u_id) AS followerCnt,";
@@ -65,9 +68,14 @@ router.get('', async (req, res) => {
 
             query += " FROM t_users AS uTab WHERE uTab.u_nick_name LIKE ? AND uTab.u_id != ?";
             params.push(`%${keyword}%`);
-            params.push(uId);
+            params.push(authUId); // 본인은 제외하고
 
         } else {
+            if (isNone(uId)) {
+                res.json({ status: 'ERR_WRONG_PARAMS' });
+                return;
+            }
+
             query += " FROM t_maps_follow AS mfTab";
             query += " JOIN t_users AS uTab ON uTab.u_id =";
 

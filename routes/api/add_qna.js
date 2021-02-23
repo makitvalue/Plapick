@@ -39,9 +39,15 @@ router.post('', async (req, res) => {
 
         let query = "INSERT INTO t_qnas (q_u_id, q_title, q_content) VALUES (?, ?, ?)";
         let params = [uId, title, content];
-        await pool.query(query, params);
+        let [result, fields] = await pool.query(query, params);
 
-        res.json({ status: 'OK' });
+        let qId = result.insertId;
+
+        query = "SELECT * FROM t_qnas WHERE q_id = ?";
+        params = [qId];
+        [result, fields] = await pool.query(query, params);
+
+        res.json({ status: 'OK', result: result[0] });
 
     } catch(error) {
         console.log(error);

@@ -28,6 +28,7 @@ router.use('/follow', require('./api/follow.js'));
 router.use('/check/user/nickname', require('./api/check_user_nickname.js'));
 router.use('/edit/user', require('./api/edit_user.js'));
 router.use('/add/qna', require('./api/add_qna.js'));
+router.use('/remove/qna', require('./api/remove_qna.js'));
 
 // POST - Place
 router.use('/like/place', require('./api/like_place.js'));

@@ -1,6 +1,6 @@
 var express = require('express');
 var router = express.Router();
-const { isLogined, getPlatform, getPlaceSelectWhatQuery, getPlaceSelectJoinQuery } = require('../../lib/common');
+const { isLogined, getPlatform, getPlaceSelectWhatQuery } = require('../../lib/common');
 const pool = require('../../lib/database');
 
 
@@ -25,7 +25,7 @@ router.get('', async (req, res) => {
 
         query = getPlaceSelectWhatQuery();
         query += " FROM t_places AS pTab";
-        query += getPlaceSelectJoinQuery();
+        // query += getPlaceSelectJoinQuery();
         query += " WHERE pTab.p_id = 1";
 
         let params = [uId];
