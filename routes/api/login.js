@@ -155,6 +155,8 @@ router.post('', async (req, res) => {
             fs.mkdirSync(`public/images/users/${user.u_id}/original`);
         }
 
+        console.log(user.u_id);
+
         // 세션 생성
         req.session.isLogined = true;
         req.session.uId = user.u_id;

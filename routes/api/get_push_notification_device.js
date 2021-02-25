@@ -27,7 +27,7 @@ router.get('', async (req, res) => {
             return;
         }
     
-        let query = "SELECT * FROM t_push_notification_devices WHERE pnd_id = ? AND pnd_u_id = ?";
+        let query = "SELECT * FROM t_push_notification_devices WHERE pnd_id LIKE ? AND pnd_u_id = ?";
         let params = [pndId, uId];
     
         let [result, fields] = await pool.query(query, params);

@@ -21,14 +21,14 @@ router.get('', async (req, res) => {
         let uId = req.session.uId;
         let page = req.query.page;
         let limit = req.query.limit;
-        let pId = req.query.pId;
+        let piId = req.query.piId;
 
-        if (isNone(pId)) {
+        if (isNone(piId)) {
             res.json({ status: 'ERR_WRONG_PARAMS' });
             return;
         }
 
-        if (!isInt(pId)) {
+        if (!isInt(piId)) {
             res.json({ status: 'ERR_WRONG_PARAMS' });
             return;
         }
@@ -54,7 +54,7 @@ router.get('', async (req, res) => {
 
         let params = [];
 
-        let query = "SELECT mcpTab.*, uTab.u_nick_name, uTab.u_profile_image, uTab.u_connected_date,";
+        let query = "SELECT mcpiTab.*, uTab.u_nick_name, uTab.u_profile_image, uTab.u_connected_date,";
 
         // 팔로우 여부
         query += " (SELECT IF(COUNT(*) > 0, 'Y', 'N') FROM t_maps_follow WHERE mf_u_id = uTab.u_id AND mf_follower_u_id = ?) AS isFollow,";
@@ -75,13 +75,13 @@ router.get('', async (req, res) => {
         // 좋아요 플레이스 개수
         query += " (SELECT COUNT(*) FROM t_maps_like_place WHERE mlp_u_id = uTab.u_id) AS likePlaceCnt";
 
-        query += " FROM t_maps_comment_place AS mcpTab";
-        query += " JOIN t_users AS uTab ON uTab.u_id = mcpTab.mcp_u_id";
-        query += " WHERE mcpTab.mcp_p_id = ?";
-        query += " ORDER BY mcpTab.mcp_created_date ASC";
+        query += " FROM t_maps_comment_pick AS mcpiTab";
+        query += " JOIN t_users AS uTab ON uTab.u_id = mcpiTab.mcpi_u_id";
+        query += " WHERE mcpiTab.mcpi_pi_id = ?";
+        query += " ORDER BY mcpiTab.mcpi_created_date ASC";
         query += ` LIMIT ${(page - 1) * limit}, ${limit}`;
 
-        params.push(pId);
+        params.push(piId);
         let [result, fields] = await pool.query(query, params);
 
         res.json({ status: 'OK', result: result });

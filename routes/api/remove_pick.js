@@ -1,7 +1,8 @@
 var express = require('express');
 var router = express.Router();
-const { isLogined, isNone, isInt } = require('../../lib/common');
+const { isLogined, isNone, isInt, getPlatform } = require('../../lib/common');
 const pool = require('../../lib/database');
+var fs = require('fs');
 
 
 // 픽 삭제
@@ -37,14 +38,20 @@ router.post('', async (req, res) => {
         let [result, fields] = await pool.query(query, params);
     
         if (result.length == 0) {
-            res.json({ status: 'ERR_NO_PICK' });
+            res.json({ status: 'ERR_NO_PERMISSION' });
             return;
         }
     
-        let pick = result[0];
-    
         query = "DELETE FROM t_picks WHERE pi_id = ? AND pi_u_id = ?";
-        [result, fields] = await pool.query(query, params);
+        await pool.query(query, params);
+
+        params = [piId];
+
+        query = "DELETE FROM t_maps_like_pick WHERE mlpi_pi_id = ?";
+        await pool.query(query, params);
+
+        query = "DELETE FROM t_maps_comment_pick WHERE mcpi_pi_id = ?";
+        await pool.query(query, params);
     
         if (fs.existsSync(`public/images/users/${uId}/${piId}.jpg`)) {
             fs.unlinkSync(`public/images/users/${uId}/${piId}.jpg`);
@@ -52,10 +59,6 @@ router.post('', async (req, res) => {
                 fs.unlinkSync(`public/images/users/${uId}/original/${piId}.jpg`);
             }
         }
-    
-        // query = "UPDATE t_places SET p_pick_cnt = p_pick_cnt - 1 WHERE p_id = ?";
-        // params = [pick.pi_p_id];
-        // [result, fields] = await pool.query(query, params);
     
         res.json({ status: 'OK' });
 

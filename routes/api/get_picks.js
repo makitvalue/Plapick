@@ -134,7 +134,7 @@ router.get('', async (req, res) => {
             params.push(pId);
 
         } else if (!isNone(mlpiUId)) {
-            query += " WHERE mlpi.mlpi_u_id = ?";
+            query += " WHERE mlpiTab.mlpi_u_id = ?";
             params.push(mlpiUId);
 
         } else {

@@ -21,6 +21,7 @@ router.use('/get/comments', require('./api/get_comments.js'));
 router.use('/get/qnas', require('./api/get_qnas.js'));
 
 router.use('/get/place/comments', require('./api/get_place_comments.js'));
+router.use('/get/pick/comments', require('./api/get_pick_comments.js'));
 
 
 // POST
@@ -33,12 +34,18 @@ router.use('/add/qna', require('./api/add_qna.js'));
 router.use('/remove/qna', require('./api/remove_qna.js'));
 router.use('/add/place/comment', require('./api/add_place_comment.js'));
 router.use('/remove/place/comment', require('./api/remove_place_comment.js'));
+router.use('/add/pick/comment', require('./api/add_pick_comment.js'));
+router.use('/remove/pick/comment', require('./api/remove_pick_comment.js'));
+router.use('/check/pick', require('./api/check_pick.js'));
+router.use('/add/user/device', require('./api/add_user_device.js'));
+router.use('/edit/user/push', require('./api/edit_user_push.js'));
 
 // POST - Place
 router.use('/like/place', require('./api/like_place.js'));
 router.use('/add/place', require('./api/add_place.js'));
 
 // POST - Pick
+router.use('/like/pick', require('./api/like_pick.js'));
 router.use('/add/pick', require('./api/add_pick.js'));
 
 // POST - Other

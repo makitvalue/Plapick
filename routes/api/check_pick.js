@@ -1,10 +1,9 @@
 var express = require('express');
 var router = express.Router();
-const { isLogined, isNone, getPlatform } = require('../../lib/common');
+const { isLogined, getPlatform, isNone, isInt } = require('../../lib/common');
 const pool = require('../../lib/database');
 
 
-// 푸시 알림 디바이스 추가
 router.post('', async (req, res) => {
     try {
         let plapickKey = req.body.plapickKey;
@@ -19,28 +18,27 @@ router.post('', async (req, res) => {
             return;
         }
 
-        let uId = req.session.uId;
-        let device = req.body.device;
-    
-        if (isNone(device)) {
+        let piId = req.body.piId;
+
+        if (isNone(piId)) {
             res.json({ status: 'ERR_WRONG_PARAMS' });
             return;
         }
 
-        if (platform != 'IOS' && platform != 'ANDROID') {
+        if (!isInt(piId)) {
             res.json({ status: 'ERR_WRONG_PARAMS' });
             return;
         }
-    
-        let query = "SELECT * FROM t_push_notification_devices WHERE pnd_device = ? AND pnd_u_id = ? AND pnd_platform = ?";
-        let params = [device, uId, platform];
+
+        let query = "SELECT * FROM t_picks WHERE pi_id = ?";
+        let params = [piId];
         let [result, fields] = await pool.query(query, params);
-    
+
         if (result.length == 0) {
-            query = "INSERT INTO t_push_notification_devices (pnd_device, pnd_u_id, pnd_platform) VALUES (?, ?, ?)";
-            await pool.query(query, params);
-        }
-    
+            res.json({ status: 'NO_PICK' });
+            return;
+        } 
+
         res.json({ status: 'OK' });
 
     } catch(error) {
