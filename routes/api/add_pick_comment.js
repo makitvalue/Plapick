@@ -44,37 +44,38 @@ router.post('', async (req, res) => {
 
         let pick = result[0];
 
-        query = "INSERT INTO t_maps_comment_pick (mcpi_u_id, mcpi_pi_id, mcpi_comment) VALUES (?, ?, ?)";
-        params = [uId, piId, comment];
-        await pool.query(query, params);
+        if (pick.pi_u_id != uId) {
+            // 다른사람이 댓글을 남겼을 경우 푸시
+            query = "INSERT INTO t_maps_comment_pick (mcpi_u_id, mcpi_pi_id, mcpi_comment) VALUES (?, ?, ?)";
+            params = [uId, piId, comment];
+            await pool.query(query, params);
 
-        query = "SELECT * FROM t_users WHERE";
-        query += " u_is_logined LIKE 'Y' AND u_device IS NOT NULL AND u_device NOT LIKE '' AND u_is_allowed_my_pick_comment LIKE 'Y'";
-        query += " AND u_id = ?";
-        params = [pick.pi_u_id];
-        [result, fields] = await pool.query(query, params);
-
-        if (result.length > 0) {
-            // 푸쉬
-            let option = {
-                token: {
-                    key: 'certs/PlapickPush.p8',
-                    keyId: process.env.PUSH_NOTIFICATION_KEY_ID,
-                    teamId: process.env.PUSH_NOTIFICATION_TEAM_ID
-                },
-                production: false
-            };
-            let apnProvider = apn.Provider(option);
-
-            let user = result[0];
-
-            query = "SELECT * FROM t_users WHERE u_id = ?";
-            params = [uId];
+            query = "SELECT * FROM t_users WHERE";
+            query += " u_is_logined LIKE 'Y' AND u_device IS NOT NULL AND u_device NOT LIKE '' AND u_is_allowed_my_pick_comment LIKE 'Y'";
+            query += " AND u_id = ?";
+            params = [pick.pi_u_id];
             [result, fields] = await pool.query(query, params);
 
-            let authUser = result[0];
+            if (result.length > 0) {
+                let option = {
+                    token: {
+                        key: 'certs/PlapickPush.p8',
+                        keyId: process.env.PUSH_NOTIFICATION_KEY_ID,
+                        teamId: process.env.PUSH_NOTIFICATION_TEAM_ID
+                    },
+                    production: false
+                };
+                let apnProvider = apn.Provider(option);
 
-            let device = user.u_deivce;
+                let user = result[0];
+
+                query = "SELECT * FROM t_users WHERE u_id = ?";
+                params = [uId];
+                [result, fields] = await pool.query(query, params);
+
+                let authUser = result[0];
+
+                let device = user.u_deivce;
                 let lastLoginPlatform = user.u_last_login_platform;
 
                 if (lastLoginPlatform == 'IOS') {
@@ -90,6 +91,7 @@ router.post('', async (req, res) => {
                 } else {
 
                 }
+            }
         }
 
         res.json({ status: 'OK' });
