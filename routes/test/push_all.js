@@ -18,55 +18,29 @@ router.get('', async (req, res) => {
             },
             production: false
         };
-
-        // let option = {
-        //     gateway: 'gateway.sandbox.push.apple.com',
-        //     cert: 'certs/plapickCer.pem',
-        //     key: 'certs/plapickKey.unencrypted.pem'
-        // };
+        
         let apnProvider = apn.Provider(option);
 
-        let query = "SELECT * FROM t_users AS uTab LEFT JOIN";
-        query += " (SELECT pnd_u_id, GROUP_CONCAT(CONCAT_WS(':', pnd_id, pnd_device) SEPARATOR '|') AS devices";
-        query += " FROM t_push_notification_devices GROUP BY pnd_u_id)";
-        query += " AS pndTab ON uTab.u_id = pndTab.pnd_u_id WHERE u_is_logined LIKE 'Y' AND u_status LIKE 'ACTIVATE'";
+        let query = "SELECT * FROM t_users WHERE";
+        query += " u_last_login_platform LIKE 'IOS' AND u_is_logined LIKE 'Y'";
+        query += " AND u_device IS NOT NULL AND u_device NOT LIKE '' AND u_is_allowed_recommended_place LIKE 'Y'";
+        let [result, fields] = await pool.query(query);
 
-        let [userList, fields] = await pool.query(query);
-
-        let iosList = [];
-        let androidList = [];
-        for (let i = 0; i < userList.length; i++) {
-            let user = userList[i];
-            let devices = user.devices;
-
-            if (!devices) continue;
-
-            let splittedDevices = devices.split('|');
-
-            for (let j = 0; j < splittedDevices.length; j++) {
-                let device = splittedDevices[j];
-                let splittedDevice = device.split(':');
-                let dId = splittedDevice[0];
-                let dDevice = splittedDevice[1];
-
-                if (dDevice == 'IOS') {
-                    iosList.push(dId);
-                } else if (dDevice == 'ANDROID') {
-                    androidList.push(dId);
-                }
-            }
+        let deviceList = [];
+        for (let i = 0; i < result.length; i++) {
+            deviceList.push(result[i].u_device);
         }
 
         let note = new apn.Notification();
         note.expiry = Math.floor(Date.now() / 1000) + 3600;
-        note.badge = 1;
+        note.badge = 0;
         note.sound = 'ping.aiff';
-        note.alert = alert;
-        note.payload = { 'messageFrom': "메시지ㅎㅎ" };
+        note.alert = 'alert 제목?';
+        // note.payload = { 'messageFrom': "메시지ㅎㅎ" };
         note.topic = 'com.logicador.Plapick';
 
-        let result = await apnProvider.send(note, iosList);
-        console.log(result);
+        let pushResult = await apnProvider.send(note, deviceList);
+        console.log(pushResult);
 
         res.json({ status: 'OK' });
 

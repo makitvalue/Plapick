@@ -138,7 +138,9 @@ router.get('', async (req, res) => {
             params.push(mlpiUId);
 
         } else {
-            // recent 조건?
+            // ONLY RECENT
+            query += " WHERE piTab.pi_u_id != ?";
+            params.push(authUId);
         }
 
         // ORDER
