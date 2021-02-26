@@ -64,7 +64,7 @@ router.post('', async (req, res) => {
 
             query = "SELECT * FROM t_users WHERE";
             query += " u_is_logined LIKE 'Y' AND u_device IS NOT NULL AND u_device NOT LIKE '' AND u_is_allowed_follow LIKE 'Y'";
-            query += " WHERE u_id = ?";
+            query += " AND u_id = ?";
             params = [uId];
             [result, fields] = await pool.query(query, params);
 
