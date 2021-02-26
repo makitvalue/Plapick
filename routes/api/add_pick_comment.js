@@ -50,7 +50,7 @@ router.post('', async (req, res) => {
 
         query = "SELECT * FROM t_users WHERE";
         query += " u_is_logined LIKE 'Y' AND u_device IS NOT NULL AND u_device NOT LIKE '' AND u_is_allowed_my_pick_comment LIKE 'Y'";
-        query += " WHERE u_id = ?";
+        query += " AND u_id = ?";
         params = [pick.pi_u_id];
         [result, fields] = await pool.query(query, params);
 
