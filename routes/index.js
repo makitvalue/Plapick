@@ -17,4 +17,9 @@ router.get('/mobile/terms/privacy', (req, res) => {
 });
 
 
+router.get('/support', (req, res) => {
+    res.render('support');
+});
+
+
 module.exports = router;
