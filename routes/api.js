@@ -39,6 +39,10 @@ router.use('/remove/pick/comment', require('./api/remove_pick_comment.js'));
 router.use('/check/pick', require('./api/check_pick.js'));
 router.use('/add/user/device', require('./api/add_user_device.js'));
 router.use('/edit/user/push', require('./api/edit_user_push.js'));
+router.use('/block/user', require('./api/block_user.js'));
+router.use('/report/user', require('./api/report_user.js'));
+router.use('/block/pick', require('./api/block_pick.js'));
+router.use('/report/pick', require('./api/report_pick.js'));
 
 // POST - Place
 router.use('/like/place', require('./api/like_place.js'));

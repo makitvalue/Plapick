@@ -119,16 +119,28 @@ router.get('', async (req, res) => {
                 return;
             }
 
-            let query = "SET SESSION group_concat_max_len = 65535";
-            let [result, fields] = await pool.query(query);
+            let query = "SELECT * FROM t_block_users WHERE bu_u_id = ?";
+            let params = [uId];
+            let [result, fields] = await pool.query(query, params);
 
-            query = getPlaceSelectWhatQuery();
+            let blockUserList = result;
+
+            query = "SET SESSION group_concat_max_len = 65535";
+            [result, fields] = await pool.query(query);
+
+            query = getPlaceSelectWhatQuery(blockUserList);
             query += " FROM t_maps_like_place AS mlpTab";
             query += " JOIN t_places AS pTab ON pTab.p_id = mlpTab.mlp_p_id";
             // query += getPlaceSelectJoinQuery();
             query += " WHERE mlpTab.mlp_u_id = ?";
 
-            let params = [authUId, uId];
+            params = [];
+            for (let i = 0; i < blockUserList.length; i++) {
+                params.push(blockUserList[i].bu_block_u_id);
+            }
+            params.push(authUId);
+            params.push(uId);
+
             [result, fields] = await pool.query(query, params);
             res.json({ status: 'OK', result: result });
 
@@ -214,15 +226,25 @@ router.get('', async (req, res) => {
 async function contextPlaceList(authUId, kakaoPlaceList) {
     if (kakaoPlaceList.length == 0) return [];
 
-    let query = "SET SESSION group_concat_max_len = 65535";
-    let [result, fields] = await pool.query(query);
+    let query = "SELECT * FROM t_block_users WHERE bu_u_id = ?";
+    let params = [authUId];
+    let [result, fields] = await pool.query(query, params);
 
-    query = getPlaceSelectWhatQuery();
+    let blockUserList = result;
+
+    query = "SET SESSION group_concat_max_len = 65535";
+    [result, fields] = await pool.query(query);
+
+    query = getPlaceSelectWhatQuery(blockUserList);
     query += " FROM t_places AS pTab";
     // query += getPlaceSelectJoinQuery();
     query += " WHERE pTab.p_k_id IN (";
 
-    let params = [authUId];
+    params = [];
+    for (let i = 0; i < blockUserList.length; i++) {
+        params.push(blockUserList[i].bu_block_u_id);
+    }
+    params.push(authUId);
 
     let placeList = [];
     for (let i = 0; i < kakaoPlaceList.length; i++) {

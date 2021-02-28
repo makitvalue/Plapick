@@ -19,7 +19,7 @@ router.get('', async (req, res) => {
         // }
 
         let authUId = req.session.uId;
-        let uId = req.query.uId; // FOLLOWER, FOLLOWING 시 해당 유저
+        let uId = req.query.uId; // FOLLOWER, FOLLOWING, BLOCK 시 해당 유저
         let mode = req.query.mode;
         let keyword = req.query.keyword;
 
@@ -28,7 +28,7 @@ router.get('', async (req, res) => {
             return;
         }
         
-        if (mode != 'KEYWORD' && mode != 'FOLLOWER' && mode != 'FOLLOWING') {
+        if (mode != 'KEYWORD' && mode != 'FOLLOWER' && mode != 'FOLLOWING' && mode != 'BLOCK') {
             res.json({ status: 'ERR_WRONG_PARAMS' });
             return;
         }
@@ -57,7 +57,11 @@ router.get('', async (req, res) => {
         query += " (SELECT COUNT(*) FROM t_maps_like_pick WHERE mlpi_u_id = uTab.u_id) AS likePickCnt,";
 
         // 좋아요 플레이스 개수
-        query += " (SELECT COUNT(*) FROM t_maps_like_place WHERE mlp_u_id = uTab.u_id) AS likePlaceCnt";
+        query += " (SELECT COUNT(*) FROM t_maps_like_place WHERE mlp_u_id = uTab.u_id) AS likePlaceCnt,";
+
+        // 차단 여부
+        query += " (SELECT IF(COUNT(*) > 0, 'Y', 'N') FROM t_block_users WHERE bu_u_id = ? AND bu_block_u_id = uTab.u_id) AS isBlocked";
+        params.push(authUId);
         
         if (mode == 'KEYWORD') {
             // 닉네임으로 사용자 검색
@@ -70,7 +74,8 @@ router.get('', async (req, res) => {
             params.push(`%${keyword}%`);
             params.push(authUId); // 본인은 제외하고
 
-        } else {
+        } else if (mode == 'FOLLOWER' || mode == 'FOLLOWING') {
+            // 팔로워 혹은 팔로잉
             if (isNone(uId)) {
                 res.json({ status: 'ERR_WRONG_PARAMS' });
                 return;
@@ -81,7 +86,16 @@ router.get('', async (req, res) => {
 
             query += (mode == 'FOLLOWER') ? " mfTab.mf_follower_u_id WHERE mfTab.mf_u_id = ?" : " mfTab.mf_u_id WHERE mfTab.mf_follower_u_id = ?";
             params.push(uId);
+        } else {
+            // 차단한 사용자
+            query += " FROM t_block_users AS buTab";
+            query += " JOIN t_users AS uTab ON uTab.u_id = buTab.bu_block_u_id";
+            query += " WHERE buTab.bu_u_id = ?";
+            params.push(authUId);
         }
+
+        console.log(query);
+        console.log(params);
         
         let [result, fields] = await pool.query(query, params);
 

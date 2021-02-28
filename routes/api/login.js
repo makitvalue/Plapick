@@ -146,6 +146,7 @@ router.post('', async (req, res) => {
 
         let user = result[0];
         user.isFollow = "N"; // 자기 자신이니 N
+        user.isBlocked = "N"; // 자기 자신이니 N
 
         // 사용자 폴더 없으면 생성해주기
         if (!fs.existsSync(`public/images/users/${user.u_id}`)) {
@@ -154,8 +155,6 @@ router.post('', async (req, res) => {
         if (!fs.existsSync(`public/images/users/${user.u_id}/original`)) {
             fs.mkdirSync(`public/images/users/${user.u_id}/original`);
         }
-
-        console.log(user.u_id);
 
         // 세션 생성
         req.session.isLogined = true;

@@ -73,7 +73,11 @@ router.get('', async (req, res) => {
         query += " (SELECT COUNT(*) FROM t_maps_like_pick WHERE mlpi_u_id = uTab.u_id) AS likePickCnt,";
 
         // 좋아요 플레이스 개수
-        query += " (SELECT COUNT(*) FROM t_maps_like_place WHERE mlp_u_id = uTab.u_id) AS likePlaceCnt";
+        query += " (SELECT COUNT(*) FROM t_maps_like_place WHERE mlp_u_id = uTab.u_id) AS likePlaceCnt,";
+
+        // 차단 여부
+        query += " (SELECT IF(COUNT(*) > 0, 'Y', 'N') FROM t_block_users WHERE bu_u_id = ? AND bu_block_u_id = uTab.u_id) AS isBlocked";
+        params.push(uId);
 
         query += " FROM t_maps_comment_place AS mcpTab";
         query += " JOIN t_users AS uTab ON uTab.u_id = mcpTab.mcp_u_id";
