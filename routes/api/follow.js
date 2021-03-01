@@ -22,7 +22,7 @@ router.post('', async (req, res) => {
         let authUId = req.session.uId;
         let uId = req.body.uId;
 
-        if (isNone(uId)) { 
+        if (isNone(uId)) {
             res.json({ status: 'ERR_WRONG_PARAMS' });
             return;
         }
@@ -31,7 +31,7 @@ router.post('', async (req, res) => {
             res.json({ status: 'ERR_WRONG_PARAMS' });
             return;
         }
-        
+
         authUId = parseInt(authUId);
         uId = parseInt(uId);
         // 자기가 자기 자신을 팔로우할 수 없음
@@ -39,7 +39,7 @@ router.post('', async (req, res) => {
             res.json({ status: 'ERR_AUTH_USER' });
             return;
         }
-        
+
         let query = "SELECT * FROM t_users WHERE u_id = ?";
         let params = [uId];
         let [result, fields] = await pool.query(query, params);
@@ -51,7 +51,7 @@ router.post('', async (req, res) => {
         query = "SELECT * FROM t_maps_follow WHERE mf_u_id = ? AND mf_follower_u_id = ?";
         params = [uId, authUId];
         [result, fields] = await pool.query(query, params);
-        
+
         if (result.length > 0) {
             // 팔로우 취소
             query = "DELETE FROM t_maps_follow WHERE mf_u_id = ? AND mf_follower_u_id = ?";
@@ -85,10 +85,10 @@ router.post('', async (req, res) => {
                 query = "SELECT * FROM t_users WHERE u_id = ?";
                 params = [authUId];
                 [result, fields] = await pool.query(query, params);
-    
+
                 let authUser = result[0];
 
-                let device = user.u_deivce;
+                let device = user.u_device;
                 let lastLoginPlatform = user.u_last_login_platform;
 
                 if (lastLoginPlatform == 'IOS') {
@@ -99,7 +99,8 @@ router.post('', async (req, res) => {
                     note.alert = `${authUser.u_nick_name}님께서 회원님을 팔로우합니다.`;
                     // note.payload = { 'messageFrom': "팔로우 메시지" };
                     note.topic = 'com.logicador.Plapick';
-                    await apnProvider.send(note, device);
+                    let pushResult = await apnProvider.send(note, device);
+                    console.log(pushResult.failed);
 
                 } else {
 

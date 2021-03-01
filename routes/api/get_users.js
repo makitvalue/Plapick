@@ -27,19 +27,19 @@ router.get('', async (req, res) => {
             res.json({ status: 'ERR_WRONG_PARAMS' });
             return;
         }
-        
+
         if (mode != 'KEYWORD' && mode != 'FOLLOWER' && mode != 'FOLLOWING' && mode != 'BLOCK') {
             res.json({ status: 'ERR_WRONG_PARAMS' });
             return;
         }
 
         authUId = parseInt(authUId);
-        
+
         let query = "SELECT";
         let params = [];
 
         query += " uTab.u_id, uTab.u_nick_name, uTab.u_profile_image, uTab.u_connected_date,";
-        
+
         // 팔로우 여부
         query += " (SELECT IF(COUNT(*) > 0, 'Y', 'N') FROM t_maps_follow WHERE mf_u_id = uTab.u_id AND mf_follower_u_id = ?) AS isFollow,";
         params.push(authUId);
@@ -62,7 +62,7 @@ router.get('', async (req, res) => {
         // 차단 여부
         query += " (SELECT IF(COUNT(*) > 0, 'Y', 'N') FROM t_block_users WHERE bu_u_id = ? AND bu_block_u_id = uTab.u_id) AS isBlocked";
         params.push(authUId);
-        
+
         if (mode == 'KEYWORD') {
             // 닉네임으로 사용자 검색
             if (isNone(keyword)) {
@@ -94,9 +94,6 @@ router.get('', async (req, res) => {
             params.push(authUId);
         }
 
-        console.log(query);
-        console.log(params);
-        
         let [result, fields] = await pool.query(query, params);
 
         res.json({ status: 'OK', result: result });

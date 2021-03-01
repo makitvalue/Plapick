@@ -18,7 +18,7 @@ router.get('', async (req, res) => {
             },
             production: false
         };
-        
+
         let apnProvider = apn.Provider(option);
 
         let query = "SELECT * FROM t_users WHERE";
@@ -31,6 +31,10 @@ router.get('', async (req, res) => {
             deviceList.push(result[i].u_device);
         }
 
+        // console.log(deviceList);
+        // res.json({ status: 'OK' });
+        // return;
+
         let note = new apn.Notification();
         note.expiry = Math.floor(Date.now() / 1000) + 3600;
         note.badge = 0;
@@ -39,8 +43,9 @@ router.get('', async (req, res) => {
         // note.payload = { 'messageFrom': "메시지ㅎㅎ" };
         note.topic = 'com.logicador.Plapick';
 
-        let pushResult = await apnProvider.send(note, deviceList);
-        console.log(pushResult);
+        let token = 'c5e58550a4a65a157f383e7276fbc86b7568e9db1191aec418587c875b5ff716';
+        let pushResult = await apnProvider.send(note, token);
+        console.log(pushResult.failed);
 
         res.json({ status: 'OK' });
 
