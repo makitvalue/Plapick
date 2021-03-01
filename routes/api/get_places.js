@@ -161,26 +161,37 @@ router.get('', async (req, res) => {
 
             let dist = 2000;
 
-            let query = "SET SESSION group_concat_max_len = 65535";
-            let [result, fields] = await pool.query(query);
+            let query = "SELECT * FROM t_block_users WHERE bu_u_id = ?";
+            let params = [uId];
+            let [result, fields] = await pool.query(query, params);
 
-            query = `${getPlaceSelectWhatQuery()},`;
+            let blockUserList = result;
+
+            query = "SET SESSION group_concat_max_len = 65535";
+            [result, fields] = await pool.query(query);
+
+            query = `${getPlaceSelectWhatQuery(blockUserList)},`;
             query += ` ST_DISTANCE_SPHERE(POINT(${lng}, ${lat}), pTab.p_geometry) AS dist`;
             query += " FROM t_places AS pTab";
             // query += getPlaceSelectJoinQuery();
-            
+
             query += " WHERE MBRCONTAINS(ST_LINESTRINGFROMTEXT(";
             query += ` CONCAT('LINESTRING(', ${lng} -  IF(${lng} < 0, 1, -1) * `;
             query += ` ${dist} / 2 / ST_DISTANCE_SPHERE(POINT(${lng}, ${lat}), POINT(${lng} + IF(${lng} < 0, 1, -1), ${lat})), ' ', ${lat} -  IF(${lng} < 0, 1, -1) * `;
             query += ` ${dist} / 2 / ST_DISTANCE_SPHERE(POINT(${lng}, ${lat}), POINT(${lng}, ${lat} + IF(${lat} < 0, 1, -1))), ',', ${lng} +  IF(${lng} < 0, 1, -1) * `;
             query += ` ${dist} / 2 / ST_DISTANCE_SPHERE(POINT(${lng}, ${lat}), POINT(${lng} + IF(${lng} < 0, 1, -1), ${lat})), ' ', ${lat} +  IF(${lng} < 0, 1, -1) * `;
             query += ` ${dist} / 2 / ST_DISTANCE_SPHERE(POINT(${lng}, ${lat}), POINT(${lng}, ${lat} + IF(${lat} < 0, 1, -1))), ')')), pTab.p_geometry)`;
-            
+
             // query += " ORDER BY dist";
             // 인기순
             query += " ORDER BY (likeCnt + commentCnt + pickCnt) DESC";
 
-            let params = [authUId];
+            params = [];
+            for (let i = 0; i < blockUserList.length; i++) {
+                params.push(blockUserList[i].bu_block_u_id);
+            }
+            params.push(authUId);
+
             [result, fields] = await pool.query(query, params);
 
             res.json({ status: 'OK', result: result });
@@ -196,10 +207,16 @@ router.get('', async (req, res) => {
                 return;
             }
 
-            let query = "SET SESSION group_concat_max_len = 65535";
-            let [result, fields] = await pool.query(query);
+            let query = "SELECT * FROM t_block_users WHERE bu_u_id = ?";
+            let params = [uId];
+            let [result, fields] = await pool.query(query, params);
 
-            query = getPlaceSelectWhatQuery();
+            let blockUserList = result;
+
+            query = "SET SESSION group_concat_max_len = 65535";
+            [result, fields] = await pool.query(query);
+
+            query = getPlaceSelectWhatQuery(blockUserList);
             query += " FROM t_places AS pTab";
             // query += getPlaceSelectJoinQuery();
             query += " WHERE p_ploc_code LIKE ? AND p_cloc_code LIKE ?";
@@ -207,12 +224,19 @@ router.get('', async (req, res) => {
             // 인기순
             query += " ORDER BY (likeCnt + commentCnt + pickCnt) DESC";
 
-            let params = [authUId, plocCode, clocCode];
+            params = [];
+            for (let i = 0; i < blockUserList.length; i++) {
+                params.push(blockUserList[i].bu_block_u_id);
+            }
+            params.push(authUId);
+            params.push(plocCode);
+            params.push(clocCode);
+
             [result, fields] = await pool.query(query, params);
 
             res.json({ status: 'OK', result: result });
         }
-        
+
 
     } catch(error) {
         console.log(error);
@@ -262,7 +286,7 @@ async function contextPlaceList(authUId, kakaoPlaceList) {
             p_latitude: (isNone(kakaoPlace.y) ? '' : parseFloat(kakaoPlace.y).toFixed(6)),
             p_longitude: (isNone(kakaoPlace.x) ? '' : parseFloat(kakaoPlace.x).toFixed(6)),
             p_phone: kakaoPlace.phone,
-            
+
             p_ploc_code: '',
             p_cloc_code: '',
 
@@ -299,7 +323,7 @@ async function contextPlaceList(authUId, kakaoPlaceList) {
                 place.likeCnt = res.likeCnt;
                 place.commentCnt = res.commentCnt;
                 place.pickCnt = res.pickCnt;
-                
+
                 break;
             }
         }

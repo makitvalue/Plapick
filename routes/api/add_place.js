@@ -58,15 +58,27 @@ router.post('', async (req, res) => {
             longitude = longitude.toFixed(6);
         }
 
-        let query = "SET SESSION group_concat_max_len = 65535";
+        let query = "SELECT * FROM t_block_users WHERE bu_u_id = ?";
+        let params = [uId];
+        let [result, fields] = await pool.query(query, params);
+
+        let blockUserList = result;
+
+        query = "SET SESSION group_concat_max_len = 65535";
         await pool.query(query);
 
-        query = getPlaceSelectWhatQuery();
+        query = getPlaceSelectWhatQuery(blockUserList);
         query += " FROM t_places AS pTab";
         query += " WHERE pTab.p_k_id = ?";
-        
-        let params = [uId, kId];
-        let [result, fields] = await pool.query(query, params);
+
+        params = [];
+        for (let i = 0; i < blockUserList.length; i++) {
+            params.push(blockUserList[i].bu_block_u_id);
+        }
+        params.push(uId);
+        params.push(kId);
+
+        [result, fields] = await pool.query(query, params);
 
         if (result.length == 0) {
             // INSERT
@@ -96,11 +108,17 @@ router.post('', async (req, res) => {
             query = "SET SESSION group_concat_max_len = 65535";
             await pool.query(query);
 
-            query = getPlaceSelectWhatQuery();
+            query = getPlaceSelectWhatQuery(blockUserList);
             query += " FROM t_places AS pTab";
             query += " WHERE pTab.p_id = ?";
-            
-            params = [uId, pId];
+
+            params = [];
+            for (let i = 0; i < blockUserList.length; i++) {
+                params.push(blockUserList[i].bu_block_u_id);
+            }
+            params.push(uId);
+            params.push(pId);
+
             [result, fields] = await pool.query(query, params);
         }
 
