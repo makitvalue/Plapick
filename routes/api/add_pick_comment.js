@@ -63,7 +63,7 @@ router.post('', async (req, res) => {
                         keyId: process.env.PUSH_NOTIFICATION_KEY_ID,
                         teamId: process.env.PUSH_NOTIFICATION_TEAM_ID
                     },
-                    production: false
+                    production: true
                 };
                 let apnProvider = apn.Provider(option);
 

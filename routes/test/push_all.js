@@ -10,13 +10,19 @@ router.get('', async (req, res) => {
     try {
         let alert = req.query.alert;
 
+        // let option = {
+        //     gateway: 'gateway.push.apple.com',
+        //     cert: 'certs/push.pem',
+        //     key: 'certs/push_key.unencrypted.pem'
+        // };
+
         let option = {
             token: {
                 key: 'certs/PlapickPush.p8',
                 keyId: process.env.PUSH_NOTIFICATION_KEY_ID,
                 teamId: process.env.PUSH_NOTIFICATION_TEAM_ID
             },
-            production: false
+            production: true
         };
 
         let apnProvider = apn.Provider(option);
@@ -43,7 +49,7 @@ router.get('', async (req, res) => {
         // note.payload = { 'messageFrom': "메시지ㅎㅎ" };
         note.topic = 'com.logicador.Plapick';
 
-        let token = 'c5e58550a4a65a157f383e7276fbc86b7568e9db1191aec418587c875b5ff716';
+        let token = '54c375ae1853eae2ce66b01c8480d5f40925c0aff6e652797b030ed79031e5d7';
         let pushResult = await apnProvider.send(note, token);
         console.log(pushResult.failed);
 
