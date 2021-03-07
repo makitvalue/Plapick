@@ -9,6 +9,7 @@ const apn = require('apn');
 router.get('', async (req, res) => {
     try {
         let alert = req.query.alert;
+        let device = req.query.device;
 
         // let option = {
         //     gateway: 'gateway.push.apple.com',
@@ -45,11 +46,11 @@ router.get('', async (req, res) => {
         note.expiry = Math.floor(Date.now() / 1000) + 3600;
         note.badge = 0;
         note.sound = 'ping.aiff';
-        note.alert = 'alert 제목?';
+        note.alert = alert;
         // note.payload = { 'messageFrom': "메시지ㅎㅎ" };
         note.topic = 'com.logicador.Plapick';
 
-        let token = '54c375ae1853eae2ce66b01c8480d5f40925c0aff6e652797b030ed79031e5d7';
+        let token = device;
         let pushResult = await apnProvider.send(note, token);
         console.log(pushResult.failed);
 
