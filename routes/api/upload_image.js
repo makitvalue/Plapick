@@ -14,16 +14,16 @@ router.post('', (req, res) => {
             res.json({ status: 'ERR_NO_PERMISSION' });
             return;
         }
-    
+
         let form = new formidable.IncomingForm();
         form.encoding = 'utf-8';
         form.uploadDir = 'upload/tmp';
         form.multiples = true;
         form.keepExtensions = true;
-    
+
         let uId = req.session.uId;
-    
-        form.parse(req, (error, body, files) => {
+
+        form.parse(req, async (error, body, files) => {
             if (error) {
                 if (fs.existsSync(files.image.path)) {
                     fs.unlinkSync(files.image.path);
@@ -31,7 +31,7 @@ router.post('', (req, res) => {
                 res.json({ status: 'ERR_UPLOAD' });
                 return;
             }
-        
+
             let plapickKey = body.plapickKey;
             let platform = getPlatform(plapickKey);
             if (platform === '') {
@@ -43,29 +43,32 @@ router.post('', (req, res) => {
             }
 
             let imageName = generateRandomId();
-    
+
             // 이미지 프로세싱
             let imagePath = `public/images/users/${uId}/${imageName}.jpg`;
             let originalImagePath = `public/images/users/${uId}/original/${imageName}.jpg`;
-            fs.rename(files.image.path, imagePath, () => {
-                fs.copyFile(imagePath, originalImagePath, async () => {
-    
-                    let originalWidth = imageSize(originalImagePath).width;
-                    let rw = 0;
-                    while (true) {
-                        if (fs.statSync(imagePath).size > 100000) {
-                            rw += 2;
-                            await sharp(originalImagePath)
-                                .resize({ width: parseInt(originalWidth * ((100 - rw) / 100)) })
-                                .toFile(imagePath);
-                        } else { break; }
-                    }
-    
-                    res.json({ status: 'OK', result: parseInt(imageName) });
-                });
+            await sharp(files.image.path).rotate().toFile(imagePath);
+            fs.unlinkSync(files.image.path);
+            // fs.rename(files.image.path, imagePath, async () => {
+
+            fs.copyFile(imagePath, originalImagePath, async () => {
+
+                let originalWidth = imageSize(originalImagePath).width;
+                let rw = 0;
+                while (true) {
+                    if (fs.statSync(imagePath).size > 400000) {
+                        rw += 10;
+                        await sharp(originalImagePath)
+                            .resize({ width: parseInt(originalWidth * ((100 - rw) / 100)) })
+                            .toFile(imagePath);
+                    } else { break; }
+                }
+
+                res.json({ status: 'OK', result: parseInt(imageName) });
             });
+            // });
         });
-        
+
     } catch(error) {
         console.log(error);
         res.json({ status: 'ERR_INTERNAR_SERVER' });
