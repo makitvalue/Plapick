@@ -13,31 +13,29 @@ router.post('', async (req, res) => {
             return;
         }
 
-        if (!isLogined(req.session)) {
-            res.json({ status: 'ERR_NO_PERMISSION' });
-            return;
-        }
+        let ieId = req.body.ieId;
+        let email = req.body.email;
+        let code = req.body.code;
 
-        let uId = req.session.uId;
-        let question = req.body.question;
-
-        if (isNone(question)) {
+        if (isNone(ieId) || isNone(email) || isNone(code)) {
             res.json({ status: 'ERR_WRONG_PARAMS' });
             return;
         }
 
-        let query = "INSERT INTO t_qnas (q_u_id, q_question) VALUES (?, ?)";
-        let params = [uId, question];
+        let query = "SELECT * FROM t_identified_email WHERE ie_id = ? AND ie_email LIKE ? AND ie_code LIKE ? AND ie_created_date >= DATE_ADD(NOW(), INTERVAL -3 MINUTE)";
+        let params = [ieId, email, code];
         let [result, fields] = await pool.query(query, params);
 
-        let qId = result.insertId;
+        if (result.length == 0) {
+            res.json({ status: 'WRONG_CODE' });
+            return;
+        }
 
-        query = "SELECT * FROM t_qnas WHERE q_id = ?";
-        params = [qId];
-        [result, fields] = await pool.query(query, params);
+        query = "DELETE FROM t_identified_email WHERE ie_id = ?";
+        params = [ieId];
+        await pool.query(query, params);
 
-        let qna = result[0];
-        res.json({ status: 'OK', result: qna });
+        res.json({ status: 'OK' });
 
     } catch(error) {
         console.log(error);

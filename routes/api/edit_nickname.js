@@ -1,6 +1,6 @@
 var express = require('express');
 var router = express.Router();
-const { isLogined, getPlatform, isNone, isInt } = require('../../lib/common');
+const { isLogined, getPlatform } = require('../../lib/common');
 const pool = require('../../lib/database');
 
 
@@ -19,33 +19,22 @@ router.post('', async (req, res) => {
         }
 
         let uId = req.session.uId;
-        let pId = req.body.pId;
+        let nickname = req.body.nickname;
 
-        if (isNone(pId)) {
-            res.json({ status: 'ERR_WRONG_PARAMS' });
-            return;
-        }
+        let query = "SELECT * FROM t_users WHERE u_nickname LIKE ? AND u_id != ?";
+        let params = [nickname, uId];
 
-        if (!isInt(pId)) {
-            res.json({ status: 'ERR_WRONG_PARAMS' });
-            return;
-        }
-
-        let query = "SELECT * FROM t_place_likes WHERE pl_p_id = ? AND pl_u_id = ?";
-        let params = [pId, uId];
         let [result, fields] = await pool.query(query, params);
 
-        let isLike = 'Y';
-
-        if (result.length == 0) {
-            query = "INSERT INTO t_place_likes (pl_p_id, pl_u_id) VALUES (?, ?)";
-        } else {
-            isLike = 'N';
-            query = "DELETE FROM t_place_likes WHERE pl_p_id = ? AND pl_u_id = ?";
+        if (result.length > 0) {
+            res.json({ status: 'EXISTS_NICKNAME' });
+            return;
         }
+
+        query = "UPDATE t_users SET u_nickname = ?, u_updated_date = NOW(), u_connected_date = NOW() WHERE u_id = ?";
         await pool.query(query, params);
 
-        res.json({ status: 'OK', result: isLike });
+        res.json({ status: 'OK' });
 
     } catch(error) {
         console.log(error);

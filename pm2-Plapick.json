@@ -1,5 +1,5 @@
 {
-	"name": "Plapick",
+	"name": "DEV-Plapick",
         "script": "bin/www",
         "watch": true,
         "watch_delay": 0,

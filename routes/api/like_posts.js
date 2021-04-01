@@ -19,40 +19,33 @@ router.post('', async (req, res) => {
         }
 
         let uId = req.session.uId;
-        let pId = req.body.pId;
-        let comment = req.body.comment;
+        let poId = req.body.poId;
 
-        if (isNone(pId) || isNone(comment)) {
+        if (isNone(poId)) {
             res.json({ status: 'ERR_WRONG_PARAMS' });
             return;
         }
 
-        if (!isInt(pId)) {
+        if (!isInt(poId)) {
             res.json({ status: 'ERR_WRONG_PARAMS' });
             return;
         }
 
-        if (comment.length > 100) {
-            res.json({ status: 'ERR_WRONG_PARAMS' });
-            return;
-        }
-
-        let query = "INSERT INTO t_place_comments (pc_p_id, pc_u_id, pc_comment) VALUES (?, ?, ?)";
-        let params = [pId, uId, comment];
+        let query = "SELECT * FROM t_posts_likes WHERE pol_po_id = ? AND pol_u_id = ?";
+        let params = [poId, uId];
         let [result, fields] = await pool.query(query, params);
 
-        let pcId = result.insertId;
+        let isLike = 'Y';
 
-        query = "SELECT pcTab.*, uTab.u_nickname, uTab.u_profile_image";
-        query += " FROM t_place_comments AS pcTab";
-        query += " JOIN t_users AS uTab ON uTab.u_id = pcTab.pc_u_id";
-        query += " WHERE pcTab.pc_id = ?";
-        params = [pcId];
+        if (result.length == 0) {
+            query = "INSERT INTO t_posts_likes (pol_po_id, pol_u_id) VALUES (?, ?)";
+        } else {
+            isLike = 'N';
+            query = "DELETE FROM t_posts_likes WHERE pol_po_id = ? AND pol_u_id = ?";
+        }
+        await pool.query(query, params);
 
-        [result, fields] = await pool.query(query, params);
-
-        let pc = result[0];
-        res.json({ status: 'OK', result: pc });
+        res.json({ status: 'OK', result: { poId: parseInt(poId), isLike: isLike } });
 
     } catch(error) {
         console.log(error);

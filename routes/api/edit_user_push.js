@@ -32,19 +32,17 @@ router.post('', async (req, res) => {
             return;
         }
 
-        if (actionMode != 'FOLLOW' && actionMode != 'MY_PICK_COMMENT' && 
-            actionMode != 'RECOMMENDED_PLACE' && actionMode != 'AD' && actionMode != 'EVENT_NOTICE') {
+        if (actionMode != 'AD' && actionMode != 'POSTS_COMMENT' && actionMode != 'FOLLOWED' && actionMode != 'RE_COMMENT') {
             res.json({ status: 'ERR_WRONG_PARAMS' });
             return;
         }
 
         let query = "UPDATE t_users SET ";
 
-        if (actionMode == 'FOLLOW') query += " u_is_allowed_follow = ?";
-        else if (actionMode == 'MY_PICK_COMMENT') query += " u_is_allowed_my_pick_comment = ?";
-        else if (actionMode == 'RECOMMENDED_PLACE') query += " u_is_allowed_recommended_place = ?";
-        else if (actionMode == 'AD') query += " u_is_allowed_ad = ?";
-        else if (actionMode == 'EVENT_NOTICE') query += " u_is_allowed_event_notice = ?";
+        if (actionMode == 'AD') query += " u_is_allowed_push_ad = ?";
+        else if (actionMode == 'POSTS_COMMENT') query += " u_is_allowed_push_posts_comment = ?";
+        else if (actionMode == 'FOLLOWED') query += " u_is_allowed_push_followed = ?";
+        else if (actionMode == 'RE_COMMENT') query += " u_is_allowed_push_re_comment = ?";
 
         query += " WHERE u_id = ?";
         let params = [isAllowed, uId];

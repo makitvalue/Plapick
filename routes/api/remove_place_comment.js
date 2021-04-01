@@ -19,20 +19,20 @@ router.post('', async (req, res) => {
         }
 
         let uId = req.session.uId;
-        let mcpId = req.body.mcpId;
+        let pcId = req.body.pcId;
 
-        if (isNone(mcpId)) {
+        if (isNone(pcId)) {
             res.json({ status: 'ERR_WRONG_PARAMS' });
             return;
         }
 
-        if (!isInt(mcpId)) {
+        if (!isInt(pcId)) {
             res.json({ status: 'ERR_WRONG_PARAMS' });
             return;
         }
 
-        let query = "SELECT * FROM t_maps_comment_place WHERE mcp_id = ? AND mcp_u_id = ?";
-        let params = [mcpId, uId];
+        let query = "SELECT * FROM t_place_comments WHERE pc_id = ? AND pc_u_id = ?";
+        let params = [pcId, uId];
         let [result, fields] = await pool.query(query, params);
 
         if (result.length == 0) {
@@ -40,10 +40,12 @@ router.post('', async (req, res) => {
             return;
         }
 
-        query = "DELETE FROM t_maps_comment_place WHERE mcp_id = ? AND mcp_u_id = ?";
+        let placeComment = result[0];
+
+        query = "DELETE FROM t_place_comments WHERE pc_id = ? AND pc_u_id = ?";
         await pool.query(query, params);
 
-        res.json({ status: 'OK' });
+        res.json({ status: 'OK', result: placeComment.pc_id });
 
     } catch(error) {
         console.log(error);

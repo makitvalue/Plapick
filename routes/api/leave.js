@@ -1,6 +1,6 @@
 var express = require('express');
 var router = express.Router();
-const { isLogined, getPlatform, isNone } = require('../../lib/common');
+const { isLogined, getPlatform } = require('../../lib/common');
 const pool = require('../../lib/database');
 
 
@@ -19,25 +19,12 @@ router.post('', async (req, res) => {
         }
 
         let uId = req.session.uId;
-        let question = req.body.question;
 
-        if (isNone(question)) {
-            res.json({ status: 'ERR_WRONG_PARAMS' });
-            return;
-        }
+        let query = "UPDATE t_users SET u_status = 'LEAVE' WHERE u_id = ?";
+        let params = [uId];
+        await pool.query(query, params);
 
-        let query = "INSERT INTO t_qnas (q_u_id, q_question) VALUES (?, ?)";
-        let params = [uId, question];
-        let [result, fields] = await pool.query(query, params);
-
-        let qId = result.insertId;
-
-        query = "SELECT * FROM t_qnas WHERE q_id = ?";
-        params = [qId];
-        [result, fields] = await pool.query(query, params);
-
-        let qna = result[0];
-        res.json({ status: 'OK', result: qna });
+        res.json({ status: 'OK' });
 
     } catch(error) {
         console.log(error);

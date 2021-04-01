@@ -8,12 +8,14 @@ router.get('/', (req, res, next) => {
 
 
 router.get('/mobile/terms/agreement', (req, res) => {
-    res.render('agreement');
+    let theme = req.query.theme;
+    res.render('agreement', { theme: theme });
 });
 
 
 router.get('/mobile/terms/privacy', (req, res) => {
-    res.render('privacy');
+    let theme = req.query.theme;
+    res.render('privacy', { theme: theme });
 });
 
 

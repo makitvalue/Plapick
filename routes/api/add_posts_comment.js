@@ -19,15 +19,15 @@ router.post('', async (req, res) => {
         }
 
         let uId = req.session.uId;
-        let pId = req.body.pId;
+        let poId = req.body.poId;
         let comment = req.body.comment;
 
-        if (isNone(pId) || isNone(comment)) {
+        if (isNone(poId) || isNone(comment)) {
             res.json({ status: 'ERR_WRONG_PARAMS' });
             return;
         }
 
-        if (!isInt(pId)) {
+        if (!isInt(poId)) {
             res.json({ status: 'ERR_WRONG_PARAMS' });
             return;
         }
@@ -37,22 +37,23 @@ router.post('', async (req, res) => {
             return;
         }
 
-        let query = "INSERT INTO t_place_comments (pc_p_id, pc_u_id, pc_comment) VALUES (?, ?, ?)";
-        let params = [pId, uId, comment];
+        let query = "INSERT INTO t_posts_comments (poc_po_id, poc_u_id, poc_comment) VALUES (?, ?, ?)";
+        let params = [poId, uId, comment];
         let [result, fields] = await pool.query(query, params);
 
-        let pcId = result.insertId;
+        let pocId = result.insertId;
 
-        query = "SELECT pcTab.*, uTab.u_nickname, uTab.u_profile_image";
-        query += " FROM t_place_comments AS pcTab";
-        query += " JOIN t_users AS uTab ON uTab.u_id = pcTab.pc_u_id";
-        query += " WHERE pcTab.pc_id = ?";
-        params = [pcId];
+        query = "SELECT pocTab.*, uTab.u_nickname, uTab.u_profile_image";
+        query += " FROM t_posts_comments AS pocTab";
+        query += " JOIN t_users AS uTab ON uTab.u_id = pocTab.poc_u_id";
+        query += " WHERE pocTab.poc_id = ?";
+        params = [pocId];
 
         [result, fields] = await pool.query(query, params);
 
-        let pc = result[0];
-        res.json({ status: 'OK', result: pc });
+        let poc = result[0];
+        poc.poc_re_comment_cnt = 0;
+        res.json({ status: 'OK', result: poc });
 
     } catch(error) {
         console.log(error);

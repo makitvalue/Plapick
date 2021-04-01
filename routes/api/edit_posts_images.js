@@ -1,6 +1,6 @@
 var express = require('express');
 var router = express.Router();
-const { isLogined, getPlatform, isNone, isInt } = require('../../lib/common');
+const { isLogined, getPlatform, isNone, getJSONList } = require('../../lib/common');
 const pool = require('../../lib/database');
 
 
@@ -19,33 +19,31 @@ router.post('', async (req, res) => {
         }
 
         let uId = req.session.uId;
-        let pId = req.body.pId;
+        let poiList = req.body.poiList;
 
-        if (isNone(pId)) {
+        if (isNone(poiList)) {
             res.json({ status: 'ERR_WRONG_PARAMS' });
             return;
         }
 
-        if (!isInt(pId)) {
+        poiList = getJSONList(poiList);
+
+        if (poiList.length == 0) {
             res.json({ status: 'ERR_WRONG_PARAMS' });
             return;
         }
 
-        let query = "SELECT * FROM t_place_likes WHERE pl_p_id = ? AND pl_u_id = ?";
-        let params = [pId, uId];
-        let [result, fields] = await pool.query(query, params);
+        for (let i = 0; i < poiList.length; i++) {
+            let splittedPoi = poiList[i].split('|');
+            let poiId = splittedPoi[0];
+            let order = splittedPoi[1];
 
-        let isLike = 'Y';
-
-        if (result.length == 0) {
-            query = "INSERT INTO t_place_likes (pl_p_id, pl_u_id) VALUES (?, ?)";
-        } else {
-            isLike = 'N';
-            query = "DELETE FROM t_place_likes WHERE pl_p_id = ? AND pl_u_id = ?";
+            let query = "UPDATE t_posts_images SET poi_order = ? WHERE poi_id = ? AND poi_u_id = ?";
+            let params = [order, poiId, uId];
+            await pool.query(query, params);
         }
-        await pool.query(query, params);
 
-        res.json({ status: 'OK', result: isLike });
+        res.json({ status: 'OK' });
 
     } catch(error) {
         console.log(error);

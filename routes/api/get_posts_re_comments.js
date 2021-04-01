@@ -4,9 +4,9 @@ const { isLogined, getPlatform, isNone, isInt } = require('../../lib/common');
 const pool = require('../../lib/database');
 
 
-router.post('', async (req, res) => {
+router.get('', async (req, res) => {
     try {
-        let plapickKey = req.body.plapickKey;
+        let plapickKey = req.query.plapickKey;
         let platform = getPlatform(plapickKey);
         if (platform === '') {
             res.json({ status: 'ERR_PLAPICK_KEY' });
@@ -18,34 +18,28 @@ router.post('', async (req, res) => {
             return;
         }
 
-        let uId = req.session.uId;
-        let pId = req.body.pId;
+        let pocId = req.query.pocId;
 
-        if (isNone(pId)) {
+        if (isNone(pocId)) {
             res.json({ status: 'ERR_WRONG_PARAMS' });
             return;
         }
 
-        if (!isInt(pId)) {
+        if (!isInt(pocId)) {
             res.json({ status: 'ERR_WRONG_PARAMS' });
             return;
         }
 
-        let query = "SELECT * FROM t_place_likes WHERE pl_p_id = ? AND pl_u_id = ?";
-        let params = [pId, uId];
+        let query = "SELECT porcTab.*, uTab.u_nickname, uTab.u_profile_image,";
+        query += " (SELECT u_nickname FROM t_users WHERE u_id = porcTab.porc_target_u_id) AS porc_target_u_nickname";
+        query += " FROM t_posts_re_comments AS porcTab";
+        query += " JOIN t_users AS uTab ON uTab.u_id = porcTab.porc_u_id";
+        query += " WHERE porcTab.porc_poc_id = ?";
+        let params = [pocId];
+
         let [result, fields] = await pool.query(query, params);
 
-        let isLike = 'Y';
-
-        if (result.length == 0) {
-            query = "INSERT INTO t_place_likes (pl_p_id, pl_u_id) VALUES (?, ?)";
-        } else {
-            isLike = 'N';
-            query = "DELETE FROM t_place_likes WHERE pl_p_id = ? AND pl_u_id = ?";
-        }
-        await pool.query(query, params);
-
-        res.json({ status: 'OK', result: isLike });
+        res.json({ status: 'OK', result: result });
 
     } catch(error) {
         console.log(error);

@@ -5,6 +5,7 @@ var formidable = require('formidable');
 var sharp = require('sharp');
 var fs = require('fs');
 var imageSize = require('image-size');
+const pool = require('../../lib/database');
 
 
 // 이미지 업로드
@@ -42,6 +43,9 @@ router.post('', (req, res) => {
                 return;
             }
 
+            let poId = body.poId;
+            let order = body.order;
+
             let imageName = generateRandomId();
 
             // 이미지 프로세싱
@@ -55,7 +59,7 @@ router.post('', (req, res) => {
                 let originalWidth = imageSize(originalImagePath).width;
                 let rw = 0;
                 while (true) {
-                    if (fs.statSync(imagePath).size > 400000) {
+                    if (fs.statSync(imagePath).size > 300000) {
                         rw += 10;
                         await sharp(originalImagePath)
                             .resize({ width: parseInt(originalWidth * ((100 - rw) / 100)) })
@@ -63,7 +67,11 @@ router.post('', (req, res) => {
                     } else { break; }
                 }
 
-                res.json({ status: 'OK', result: parseInt(imageName) });
+                let query = "INSERT INTO t_posts_images (poi_u_id, poi_po_id, poi_path, poi_order) VALUES (?, ?, ?, ?)";
+                let params = [uId, poId, imagePath.replace('public', ''), order];
+                await pool.query(query, params);
+
+                res.json({ status: 'OK' });
             });
         });
 

@@ -4,9 +4,9 @@ const { isLogined, getPlatform, isNone, isInt } = require('../../lib/common');
 const pool = require('../../lib/database');
 
 
-router.post('', async (req, res) => {
+router.get('', async (req, res) => {
     try {
-        let plapickKey = req.body.plapickKey;
+        let plapickKey = req.query.plapickKey;
         let platform = getPlatform(plapickKey);
         if (platform === '') {
             res.json({ status: 'ERR_PLAPICK_KEY' });
@@ -18,34 +18,28 @@ router.post('', async (req, res) => {
             return;
         }
 
-        let uId = req.session.uId;
-        let pId = req.body.pId;
+        let poId = req.query.poId;
 
-        if (isNone(pId)) {
+        if (isNone(poId)) {
             res.json({ status: 'ERR_WRONG_PARAMS' });
             return;
         }
 
-        if (!isInt(pId)) {
+        if (!isInt(poId)) {
             res.json({ status: 'ERR_WRONG_PARAMS' });
             return;
         }
 
-        let query = "SELECT * FROM t_place_likes WHERE pl_p_id = ? AND pl_u_id = ?";
-        let params = [pId, uId];
+        let query = "SELECT pocTab.*, uTab.u_nickname, uTab.u_profile_image,";
+        query += " (SELECT COUNT(*) FROM t_posts_re_comments WHERE porc_poc_id = pocTab.poc_id) AS poc_re_comment_cnt";
+        query += " FROM t_posts_comments AS pocTab";
+        query += " JOIN t_users AS uTab ON uTab.u_id = pocTab.poc_u_id";
+        query += " WHERE pocTab.poc_po_id = ? ORDER BY pocTab.poc_created_date ASC";
+        let params = [poId];
+
         let [result, fields] = await pool.query(query, params);
 
-        let isLike = 'Y';
-
-        if (result.length == 0) {
-            query = "INSERT INTO t_place_likes (pl_p_id, pl_u_id) VALUES (?, ?)";
-        } else {
-            isLike = 'N';
-            query = "DELETE FROM t_place_likes WHERE pl_p_id = ? AND pl_u_id = ?";
-        }
-        await pool.query(query, params);
-
-        res.json({ status: 'OK', result: isLike });
+        res.json({ status: 'OK', result: result });
 
     } catch(error) {
         console.log(error);

@@ -21,10 +21,22 @@ body {
 	word-break: keep-all;
 	position: relative;
 }
+body.dark {
+	background: #000000;
+	color: #FFFFFF;
+}
 
 a, a:hover, a:visited, a:hover, a:focus, a:active {
-	color: #333333;
+	color: #000000;
 	text-decoration: none;
+}
+body.dark a,
+body.dark a:hover,
+body.dark a:visited,
+body.dark a:hover,
+body.dark a:focus,
+body.dark a:active {
+	color: #FFFFFF;
 }
 
 input:focus, textarea:focus, select:focus, button:focus {
