@@ -33,7 +33,12 @@ router.get('', async (req, res) => {
         let query = "SELECT pcTab.*, uTab.u_nickname, uTab.u_profile_image";
         query += " FROM t_place_comments AS pcTab";
         query += " JOIN t_users AS uTab ON uTab.u_id = pcTab.pc_u_id";
-        query += " WHERE pcTab.pc_p_id = ? ORDER BY pcTab.pc_created_date ASC";
+        query += " WHERE pcTab.pc_p_id = ?";
+
+        // 활성화된 사용자의 댓글만
+        query += " AND uTab.u_status LIKE 'ACTIVATE'";
+
+        query += " ORDER BY pcTab.pc_created_date ASC";
         let params = [pId];
 
         let [result, fields] = await pool.query(query, params);

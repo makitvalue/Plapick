@@ -93,7 +93,7 @@ router.post('', async (req, res) => {
         user.u_place_cnt = 0;
         user.u_like_pick_cnt = 0;
         user.u_like_place_cnt = 0;
-        user.u_is_followed = 'N';
+        user.u_is_follow = 'N';
         user.u_is_blocked = 'N';
 
         // 폴더 생성

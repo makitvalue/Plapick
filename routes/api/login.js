@@ -42,8 +42,8 @@ router.post('', async (req, res) => {
             }
 
             query = " SELECT uTab.*,";
-            query += " (SELECT COUNT(*) FROM t_maps_follow WHERE mf_u_id = uTab.u_id) AS u_follower_cnt,";
-            query += " (SELECT COUNT(*) FROM t_maps_follow WHERE mf_follower_u_id = uTab.u_id) AS u_following_cnt,";
+            query += " (SELECT COUNT(*) FROM t_follow WHERE f_target_u_id = uTab.u_id) AS u_follower_cnt,";
+            query += " (SELECT COUNT(*) FROM t_follow WHERE f_u_id = uTab.u_id) AS u_following_cnt,";
             query += " (SELECT COUNT(*) FROM t_posts WHERE po_u_id = uTab.u_id) AS u_posts_cnt,";
             query += " (SELECT COUNT(DISTINCT po_p_id) FROM t_posts WHERE po_u_id = uTab.u_id) AS u_place_cnt,";
             query += " (SELECT COUNT(*) FROM t_maps_like_pick WHERE mlpi_u_id = uTab.u_id) AS u_like_pick_cnt,";
@@ -66,8 +66,8 @@ router.post('', async (req, res) => {
             }
 
             query = " SELECT uTab.*,";
-            query += " (SELECT COUNT(*) FROM t_maps_follow WHERE mf_u_id = uTab.u_id) AS u_follower_cnt,";
-            query += " (SELECT COUNT(*) FROM t_maps_follow WHERE mf_follower_u_id = uTab.u_id) AS u_following_cnt,";
+            query += " (SELECT COUNT(*) FROM t_follow WHERE f_target_u_id = uTab.u_id) AS u_follower_cnt,";
+            query += " (SELECT COUNT(*) FROM t_follow WHERE f_u_id = uTab.u_id) AS u_following_cnt,";
             query += " (SELECT COUNT(*) FROM t_posts WHERE po_u_id = uTab.u_id) AS u_posts_cnt,";
             query += " (SELECT COUNT(DISTINCT po_p_id) FROM t_posts WHERE po_u_id = uTab.u_id) AS u_place_cnt,";
             query += " (SELECT COUNT(*) FROM t_maps_like_pick WHERE mlpi_u_id = uTab.u_id) AS u_like_pick_cnt,";
@@ -91,14 +91,14 @@ router.post('', async (req, res) => {
             res.json({ status: 'LEAVE_USER' });
             return;
         }
-        
+
         // 차단된 회원
         if (user.u_status == 'BLOCK') {
             res.json({ status: 'BLOCK_USER' });
             return;
         }
 
-        user.u_is_followed = 'N';
+        user.u_is_follow = 'N';
         user.u_is_blocked = 'N';
 
         // 접속 시간 갱신

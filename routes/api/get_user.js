@@ -38,14 +38,13 @@ router.get('', async (req, res) => {
         query += (parseInt(authUId) === parseInt(uId)) ? " uTab.*," : " uTab.u_id, uTab.u_nickname, uTab.u_profile_image,";
 
         // 팔로우 여부
-        query += " (SELECT IF(COUNT(*) > 0, 'Y', 'N') FROM t_maps_follow WHERE mf_u_id = uTab.u_id AND mf_follower_u_id = ?) AS u_is_followed,";
-        params.push(authUId);
+        query += " (SELECT IF(COUNT(*) > 0, 'Y', 'N') FROM t_follow WHERE f_target_u_id = uTab.u_id AND f_u_id = ?) AS u_is_follow,";
 
         // 팔로워 개수
-        query += " (SELECT COUNT(*) FROM t_maps_follow WHERE mf_u_id = uTab.u_id) AS u_follower_cnt,";
+        query += " (SELECT COUNT(*) FROM t_follow WHERE f_target_u_id = uTab.u_id) AS u_follower_cnt,";
 
         // 팔로잉 개수
-        query += " (SELECT COUNT(*) FROM t_maps_follow WHERE mf_follower_u_id = uTab.u_id) AS u_following_cnt,";
+        query += " (SELECT COUNT(*) FROM t_follow WHERE f_u_id = uTab.u_id) AS u_following_cnt,";
 
         // 게시물 개수
         query += " (SELECT COUNT(*) FROM t_posts WHERE po_u_id = uTab.u_id) AS u_posts_cnt,";
@@ -61,12 +60,12 @@ router.get('', async (req, res) => {
 
         // 차단 여부
         query += " (SELECT IF(COUNT(*) > 0, 'Y', 'N') FROM t_block_users WHERE bu_u_id = ? AND bu_block_u_id = uTab.u_id) AS u_is_blocked";
-        params.push(authUId);
 
         query += " FROM t_users AS uTab";
 
         query += " WHERE uTab.u_id = ?";
-        params.push(uId);
+
+        params = [authUId, authUId, uId];
 
         let [result, fields] = await pool.query(query, params);
 

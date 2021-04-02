@@ -30,8 +30,8 @@ router.get('', async (req, res) => {
             return;
         }
 
-        // 특정 사용자의 게시물에 연결된 플레이스 / 특정 사용자가 좋아요한 플레이스
-        if (mode != 'USER_POSTS' && mode != 'USER_LIKE') {
+        // 특정 사용자가 좋아요한 플레이스 // 특정 사용자가 게시한 플레이스
+        if (mode != 'LIKE' && mode != 'POSTS') {
             res.json({ status: 'ERR_WRONG_PARAMS' });
             return;
         }
@@ -53,42 +53,71 @@ router.get('', async (req, res) => {
             limit = parseInt(limit);
         }
 
-        let query = "SET SESSION group_concat_max_len = 65535";
-        await pool.query(query);
-
+        let query = "";
         let params = [];
         let [result, fields] = [null, null];
 
         let placeList = [];
 
-        // 특정 사용자의 게시물에 연결된 플레이스
-        if (mode == 'USER_POSTS') {
+        if (mode == 'LIKE') {
+            // 특정 사용자가 좋아요한 플레이스
             if (isNone(uId)) {
                 res.json({ status: 'ERR_WRONG_PARAMS' });
                 return;
             }
 
-            query = "SELECT poTab.*,";
-            query += " (";
-                query += " SELECT GROUP_CONCAT(";
-                    query += " CONCAT_WS(':', poiTab.poi_id, poiTab.poi_path)";
-                    query += " ORDER BY poiTab.poi_order SEPARATOR '|'";
-                query += " )";
-                query += " FROM t_posts_images AS poiTab";
-                query += " WHERE poiTab.poi_po_id = poTab.po_id";
-            query += " ) AS poi";
+            query = "SELECT pTab.*,";
+
+            // 플레이스 좋아요 여부
+            query += " (SELECT IF(COUNT(*) > 0, 'Y', 'N') FROM t_place_likes WHERE pl_u_id = ? AND pl_p_id = pTab.p_id) AS p_is_like,";
+
+            // 플레이스 좋아요 개수
+            query += " (SELECT COUNT(*) FROM t_place_likes WHERE pl_p_id = pTab.p_id) AS p_like_cnt,";
+
+            // 플레이스 댓글 개수
+            query += " (SELECT COUNT(*) FROM t_place_comments WHERE pc_p_id = pTab.p_id) AS p_comment_cnt,";
+
+            // 플레이스 게시물 개수
+            query += " (SELECT COUNT(*) FROM t_posts WHERE po_p_id = pTab.p_id) AS p_posts_cnt";
+
+            query += " FROM t_place_likes AS plTab";
+            query += " JOIN t_places AS pTab ON pTab.p_id = plTab.pl_p_id";
+            query += " WHERE plTab.pl_u_id = ?";
+            query += " ORDER BY plTab.pl_created_date DESC";
+
+            params = [authUId, uId];
+
+        } else if (mode == 'POSTS') {
+            // 특정 사용자가 게시한 플레이스
+            if (isNone(uId)) {
+                res.json({ status: 'ERR_WRONG_PARAMS' });
+                return;
+            }
+
+            query = "SELECT DISTINCT pTab.p_id, pTab.*,";
+
+            // 플레이스 좋아요 여부
+            query += " (SELECT IF(COUNT(*) > 0, 'Y', 'N') FROM t_place_likes WHERE pl_u_id = ? AND pl_p_id = pTab.p_id) AS p_is_like,";
+
+            // 플레이스 좋아요 개수
+            query += " (SELECT COUNT(*) FROM t_place_likes WHERE pl_p_id = pTab.p_id) AS p_like_cnt,";
+
+            // 플레이스 댓글 개수
+            query += " (SELECT COUNT(*) FROM t_place_comments WHERE pc_p_id = pTab.p_id) AS p_comment_cnt,";
+
+            // 플레이스 게시물 개수
+            query += " (SELECT COUNT(*) FROM t_posts WHERE po_p_id = pTab.p_id) AS p_posts_cnt";
+
             query += " FROM t_posts AS poTab";
-            query += " WHERE poTab.po_u_id = ? ORDER BY poTab.po_created_date DESC";
-            query += ` LIMIT ${(page - 1) * limit}, ${limit}`;
-            params = [uId];
+            query += " JOIN t_places AS pTab ON pTab.p_id = poTab.po_p_id";
+            query += " WHERE poTab.po_u_id = ?";
+            // query += " ORDER BY poTab.po_created_date DESC";
 
-            [result, fields] = await pool.query(query, params);
-
-            placeList = result;
-
-        } else if (mode == 'USER_LIKE') {
-
+            params = [authUId, uId];
         }
+
+        [result, fields] = await pool.query(query, params);
+        placeList = result;
 
         res.json({ status: 'OK', result: placeList });
 

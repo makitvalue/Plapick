@@ -37,9 +37,7 @@ router.get('', async (req, res) => {
         let query = "SELECT pTab.*,";
 
         // 플레이스 좋아요 여부
-        query += " IF(";
-        query += " (SELECT COUNT(*) FROM t_place_likes WHERE pl_u_id = ? AND pl_p_id = pTab.p_id)"
-        query += " > 0, 'Y', 'N') AS p_is_like,";
+        query += " (SELECT IF(COUNT(*) > 0, 'Y', 'N') FROM t_place_likes WHERE pl_u_id = ? AND pl_p_id = pTab.p_id) AS p_is_like,";
 
         // 플레이스 좋아요 개수
         query += " (SELECT COUNT(*) FROM t_place_likes WHERE pl_p_id = pTab.p_id) AS p_like_cnt,";

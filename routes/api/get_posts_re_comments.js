@@ -35,6 +35,12 @@ router.get('', async (req, res) => {
         query += " FROM t_posts_re_comments AS porcTab";
         query += " JOIN t_users AS uTab ON uTab.u_id = porcTab.porc_u_id";
         query += " WHERE porcTab.porc_poc_id = ?";
+
+        // 활성화된 사용자의 댓글만
+        query += " AND uTab.u_status LIKE 'ACTIVATE'";
+
+        query += " ORDER BY porcTab.porc_created_date ASC";
+
         let params = [pocId];
 
         let [result, fields] = await pool.query(query, params);
