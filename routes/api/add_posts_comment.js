@@ -44,6 +44,7 @@ router.post('', async (req, res) => {
 
         let pocId = result.insertId;
 
+        // Sender
         query = "SELECT pocTab.*, uTab.u_nickname, uTab.u_profile_image";
         query += " FROM t_posts_comments AS pocTab";
         query += " JOIN t_users AS uTab ON uTab.u_id = pocTab.poc_u_id";
@@ -55,44 +56,46 @@ router.post('', async (req, res) => {
         let poc = result[0];
         poc.poc_re_comment_cnt = 0;
 
-        query = "SELECT uTab.*, poTab.*";
-        query += " FROM t_posts AS poTab";
-        query += " JOIN t_users AS uTab ON uTab.u_id = poTab.po_u_id";
-        query += " WHERE uTab.u_is_logined LIKE 'Y' AND uTab.u_device IS NOT NULL AND uTab.u_device NOT LIKE ''";
-        query += " AND uTab.u_is_allowed_push_posts_comment LIKE 'Y' AND poTab.po_id = ?";
+        // 대상
+        query = "SELECT * FROM t_posts JOIN t_users ON u_id = po_u_id WHERE po_id = ?";
         params = [poId];
         [result, fields] = await pool.query(query, params);
+        let posts = result[0];
 
-        if (result.length > 0) {
-            // 푸쉬
-            let posts = result[0];
+        if (posts.u_id != uId) {
+            let alert = `"${poc.u_nickname}"님께서 회원님의 게시글에 댓글을 남겼습니다.\n"${comment}"`;
 
-            let option = {
-                token: {
-                    key: 'certs/PlapickPush.p8',
-                    keyId: process.env.PUSH_NOTIFICATION_KEY_ID,
-                    teamId: process.env.PUSH_NOTIFICATION_TEAM_ID
-                },
-                production: true
-            };
-            let apnProvider = apn.Provider(option);
+            // 알림
+            query = "INSERT INTO t_alarms";
+            query += " (a_u_id, a_target_type, a_target_id, a_alert, a_sender_u_id, a_sender_u_nickname, a_sender_u_profile_image)";
+            query += " VALUES (?, ?, ?, ?, ?, ?, ?)";
+            params = [posts.u_id, 'POSTS', posts.po_id, alert, uId, poc.u_nickname, poc.u_profile_image];
+            await pool.query(query, params);
 
-            let device = posts.u_device;
-            let lastLoginPlatform = posts.u_last_login_platform;
-            let alert = `${poc.u_nickname}님께서 회원님의 게시글에 댓글을 남겼습니다.`;
+            if (posts.u_is_logined == 'Y' && posts.u_device && posts.u_is_allowed_push_posts_comment == 'Y') {
+                // 푸쉬
+                let apnProvider = apn.Provider({
+                    token: {
+                        key: 'certs/PlapickPush.p8',
+                        keyId: process.env.PUSH_NOTIFICATION_KEY_ID,
+                        teamId: process.env.PUSH_NOTIFICATION_TEAM_ID
+                    },
+                    production: true
+                });
 
-            if (lastLoginPlatform == 'IOS') {
-                let note = new apn.Notification();
-                note.expiry = Math.floor(Date.now() / 1000) + 3600;
-                note.badge = 0;
-                note.sound = 'ping.aiff';
-                note.alert = alert;
-                // note.payload = { 'messageFrom': "팔로우 메시지" };
-                note.topic = 'com.logicador.Plapick';
-                await apnProvider.send(note, device);
+                if (posts.u_last_login_platform == 'IOS') {
+                    let note = new apn.Notification();
+                    note.expiry = Math.floor(Date.now() / 1000) + 3600;
+                    note.badge = 0;
+                    note.sound = 'ping.aiff';
+                    note.alert = alert;
+                    // note.payload = { 'messageFrom': "팔로우 메시지" };
+                    note.topic = 'com.logicador.Plapick';
+                    await apnProvider.send(note, posts.u_device);
 
-            } else {
+                } else {
 
+                }
             }
         }
 

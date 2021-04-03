@@ -9,6 +9,9 @@ var dotenv = require('dotenv');
 dotenv.config();
 
 
+process.setMaxListeners(0);
+
+
 var indexRouter = require('./routes/index');
 var apiRouter = require('./routes/api');
 var adminRouter = require('./routes/admin');

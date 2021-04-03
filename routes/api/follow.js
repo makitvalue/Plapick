@@ -48,35 +48,40 @@ router.post('', async (req, res) => {
             query = "INSERT INTO t_follow (f_u_id, f_target_u_id) VALUES (?, ?)";
             await pool.query(query, params);
 
-            query = "SELECT * FROM t_users";
-            query += " WHERE u_is_logined LIKE 'Y' AND u_device IS NOT NULL AND u_device NOT LIKE ''";
-            query += " AND u_is_allowed_push_followed LIKE 'Y' AND u_id = ?";
+            // 대상
+            query = "SELECT * FROM t_users WHERE u_id = ?";
             params = [uId];
             [result, fields] = await pool.query(query, params);
+            let user = result[0];
 
-            if (result.length > 0) {
+            // 자기자신
+            query = "SELECT * FROM t_users WHERE u_id = ?";
+            params = [authUId];
+            [result, fields] = await pool.query(query, params);
+            let authUser = result[0];
+
+            let alert = `"${authUser.u_nickname}"님께서 회원님을 팔로우합니다.`;
+
+            // 알림
+            query = "INSERT INTO t_alarms";
+            query += " (a_u_id, a_target_type, a_target_id, a_alert, a_sender_u_id, a_sender_u_nickname, a_sender_u_profile_image)";
+            query += " VALUES (?, ?, ?, ?, ?, ?, ?)";
+            params = [user.u_id, 'USER', authUId, alert, authUId, authUser.u_nickname, authUser.u_profile_image];
+            await pool.query(query, params);
+
+            if (user.u_is_logined == 'Y' && user.u_device && user.u_is_allowed_push_followed == 'Y') {
                 // 푸쉬
-                let user = result[0];
-                query = "SELECT * FROM t_users WHERE u_id = ?";
-                params = [authUId];
-                [result, fields] = await pool.query(query, params);
-                let authUser = result[0];
-
-                let option = {
+                let apnProvider = apn.Provider({
                     token: {
                         key: 'certs/PlapickPush.p8',
                         keyId: process.env.PUSH_NOTIFICATION_KEY_ID,
                         teamId: process.env.PUSH_NOTIFICATION_TEAM_ID
                     },
                     production: true
-                };
-                let apnProvider = apn.Provider(option);
+                });
 
-                let device = user.u_device;
-                let lastLoginPlatform = user.u_last_login_platform;
-                let alert = `${authUser.u_nickname}님께서 회원님을 팔로우합니다.`;
-
-                if (lastLoginPlatform == 'IOS') {
+                // 플랫폼 검사
+                if (user.u_last_login_platform == 'IOS') {
                     let note = new apn.Notification();
                     note.expiry = Math.floor(Date.now() / 1000) + 3600;
                     note.badge = 0;
@@ -84,7 +89,7 @@ router.post('', async (req, res) => {
                     note.alert = alert;
                     // note.payload = { 'messageFrom': "팔로우 메시지" };
                     note.topic = 'com.logicador.Plapick';
-                    await apnProvider.send(note, device);
+                    await apnProvider.send(note, user.u_device);
 
                 } else {
 

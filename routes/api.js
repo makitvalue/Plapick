@@ -87,7 +87,7 @@ router.use('/remove/pick', require('./api/remove_pick.js'));
 
 // TEST
 // router.use('/test', require('./test/test.js'));
-// router.use('/test/push/all', require('./test/push_all.js'));
+router.use('/test/push/all', require('./test/push_all.js'));
 // router.use('/test/upload', require('./test/upload.js'));
 // router.use('/test/sms', require('./test/test_sms.js'));
 // router.use('/test/google/places', require('./test/test_google_places.js'));
