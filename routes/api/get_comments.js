@@ -6,17 +6,17 @@ const pool = require('../../lib/database');
 
 router.get('', async (req, res) => {
     try {
-        // let plapickKey = req.query.plapickKey;
-        // let platform = getPlatform(plapickKey);
-        // if (platform === '') {
-        //     res.json({ status: 'ERR_PLAPICK_KEY' });
-        //     return;
-        // }
-        //
-        // if (!isLogined(req.session)) {
-        //     res.json({ status: 'ERR_NO_PERMISSION' });
-        //     return;
-        // }
+        let plapickKey = req.query.plapickKey;
+        let platform = getPlatform(plapickKey);
+        if (platform === '') {
+            res.json({ status: 'ERR_PLAPICK_KEY' });
+            return;
+        }
+
+        if (!isLogined(req.session)) {
+            res.json({ status: 'ERR_NO_PERMISSION' });
+            return;
+        }
 
         let mode = req.query.mode;
         let id = req.query.id;

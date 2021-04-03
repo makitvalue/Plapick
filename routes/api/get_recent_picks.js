@@ -6,17 +6,17 @@ const pool = require('../../lib/database');
 
 router.get('', async (req, res) => {
     try {
-        // let plapickKey = req.query.plapickKey;
-        // let platform = getPlatform(plapickKey);
-        // if (platform === '') {
-        //     res.json({ status: 'ERR_PLAPICK_KEY' });
-        //     return;
-        // }
+        let plapickKey = req.query.plapickKey;
+        let platform = getPlatform(plapickKey);
+        if (platform === '') {
+            res.json({ status: 'ERR_PLAPICK_KEY' });
+            return;
+        }
 
-        // if (!isLogined(req.session)) {
-        //     res.json({ status: 'ERR_NO_PERMISSION' });
-        //     return;
-        // }
+        if (!isLogined(req.session)) {
+            res.json({ status: 'ERR_NO_PERMISSION' });
+            return;
+        }
 
         let uId = req.session.uId;
         let page = req.query.page;
@@ -40,7 +40,7 @@ router.get('', async (req, res) => {
             }
             limit = parseInt(limit);
         }
- 
+
         let query = "SELECT piTab.*,";
 
         // 좋아요 여부
@@ -53,7 +53,7 @@ router.get('', async (req, res) => {
         query += " (SELECT COUNT(*) FROM t_maps_comment_pick WHERE mcpi_pi_id = piTab.pi_id) AS commentCnt";
 
         query += " FROM t_picks AS piTab";
-        
+
         query += " ORDER BY pi_created_date DESC";
         query += ` LIMIT ${(page - 1) * limit}, ${limit}`;
 

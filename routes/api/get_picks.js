@@ -6,17 +6,17 @@ const pool = require('../../lib/database');
 
 router.get('', async (req, res) => {
     try {
-        // let plapickKey = req.query.plapickKey;
-        // let platform = getPlatform(plapickKey);
-        // if (platform === '') {
-        //     res.json({ status: 'ERR_PLAPICK_KEY' });
-        //     return;
-        // }
+        let plapickKey = req.query.plapickKey;
+        let platform = getPlatform(plapickKey);
+        if (platform === '') {
+            res.json({ status: 'ERR_PLAPICK_KEY' });
+            return;
+        }
 
-        // if (!isLogined(req.session)) {
-        //     res.json({ status: 'ERR_NO_PERMISSION' });
-        //     return;
-        // }
+        if (!isLogined(req.session)) {
+            res.json({ status: 'ERR_NO_PERMISSION' });
+            return;
+        }
 
         let authUId = req.session.uId; // req.session.uId 2101111820031276
         let order = req.query.order; // RECENT, POPULAR
@@ -67,7 +67,7 @@ router.get('', async (req, res) => {
 
         // 픽 차단 여부
         query += " IF((SELECT COUNT(*) FROM t_block_picks WHERE bpi_u_id = ? AND bpi_pi_id = piTab.pi_id) > 0, 'Y', 'N') AS isBlocked,";
-        
+
         // 픽 > 작성자 > 팔로우 여부
         query += " (SELECT IF(COUNT(*) > 0, 'Y', 'N') FROM t_maps_follow WHERE mf_u_id = uTab.u_id AND mf_follower_u_id = ?) AS uIsFollow,";
 
@@ -88,7 +88,7 @@ router.get('', async (req, res) => {
 
         // 픽 > 작성자 > 차단 여부
         query += " (SELECT IF(COUNT(*) > 0, 'Y', 'N') FROM t_block_users WHERE bu_u_id = ? AND bu_block_u_id = uTab.u_id) AS uIsBlocked,";
-        
+
         // 픽 > 플레이스 > 픽들 (빈문자열)
         query += " '' AS pPicks,";
 
@@ -129,7 +129,7 @@ router.get('', async (req, res) => {
 
         // 픽 > 작성자
         query += " JOIN t_users AS uTab ON uTab.u_id = piTab.pi_u_id";
-        
+
         let params = [authUId, authUId, authUId, authUId, authUId];
 
         if (!isNone(uId)) {
